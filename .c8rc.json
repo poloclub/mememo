@@ -1,0 +1,5 @@
+{
+  "check-coverage": true,
+  "lines": 95,
+  "reporter": ["json-summary"]
+}
