@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import { add, HNSW } from '../src/mememo';
-import embeddingDataJSON from '../notebooks/data/accident-report-embeddings-100.json';
+import embeddingDataJSON from './data/accident-report-embeddings-100.json';
 
 interface EmbeddingData {
   embeddings: number[][];

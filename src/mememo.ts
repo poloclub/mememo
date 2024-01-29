@@ -3,9 +3,8 @@
  * @author: Jay Wang (jay@zijie.wang)
  */
 
-import { randomLcg, randomUniform, randomInt } from 'd3-random';
-import { comb, getCombinations } from './utils/utils';
-import type { RandomUniform, RandomInt } from 'd3-random';
+import { randomLcg, randomUniform } from 'd3-random';
+import { MinHeap } from '@datastructures-js/heap';
 
 export const add = (a: number, b: number) => {
   return a + b;
@@ -211,6 +210,11 @@ export class HNSW<T = string> {
       this.entryPoint = key;
     }
   }
+
+  /**
+   * Greedy search the closest neighbor in a layer.
+   */
+  _searchLayer() {}
 
   /**
    * Generate a random level for a node using a exponentially decaying

@@ -45,6 +45,7 @@
     "publish": "pnpm publish --access=public"
   },
   "devDependencies": {
+    "@datastructures-js/heap": "^4.3.3",
     "@rollup/plugin-typescript": "^11.1.6",
     "@types/d3-random": "^3.0.3",
     "@typescript-eslint/eslint-plugin": "^6.19.1",
