@@ -4,7 +4,7 @@
  */
 
 import { randomLcg, randomUniform } from 'd3-random';
-import { MinHeap } from '@datastructures-js/heap';
+import { MinHeap, IGetCompareValue } from '@datastructures-js/heap';
 
 export const add = (a: number, b: number) => {
   return a + b;
@@ -128,7 +128,7 @@ export class HNSW<T = string> {
   graphLayers: GraphLayer<T>[];
 
   /** Current entry point of the graph */
-  entryPoint: T | null = null;
+  entryPointKey: T | null = null;
 
   /**
    * Constructs a new instance of the class.
@@ -196,10 +196,31 @@ export class HNSW<T = string> {
     // Randomly determine the max level of this node
     const level = this._getRandomLevel();
 
-    if (this.entryPoint !== null) {
-      // (1): Search closest point
+    if (this.entryPointKey !== null) {
+      // (1): Search closest point from layers above
       // Top layer => all layers above the new node's highest layer
-      for (let l = this.graphLayers.length - 1; l >= level + 1; l--) {}
+      const entryPointInfo = this.nodes.get(this.entryPointKey);
+      if (entryPointInfo === undefined) {
+        throw Error(`Can't find node info of ${this.entryPointKey}`);
+      }
+
+      // Start with the entry point
+      let minDistance = this.distanceFunction(value, entryPointInfo.value);
+      let minNodeKey: T = this.entryPointKey;
+
+      for (let l = this.graphLayers.length - 1; l >= level + 1; l--) {
+        const result = this._searchLayerNearestOne(
+          value,
+          minNodeKey,
+          minDistance,
+          this.graphLayers[l]
+        );
+        minDistance = result.minDistance;
+        minNodeKey = result.minNodeKey;
+      }
+
+      // (2): Insert the node
+      // New node's highest layer => layer 0
     }
 
     // If the level is beyond current layers, extend the layers
@@ -207,14 +228,76 @@ export class HNSW<T = string> {
       this.graphLayers.push(new GraphLayer(key));
 
       // Set entry point as the last added node
-      this.entryPoint = key;
+      this.entryPointKey = key;
     }
   }
 
   /**
    * Greedy search the closest neighbor in a layer.
+   * @param queryValue The embedding value of the query
+   * @param entryPointKey Current entry point of this layer
+   * @param entryPointDistance Distance between query and entry point
+   * @param graphLayer Current graph layer
    */
-  _searchLayer() {}
+  _searchLayerNearestOne(
+    queryValue: number[],
+    entryPointKey: T,
+    entryPointDistance: number,
+    graphLayer: GraphLayer<T>
+  ) {
+    interface NodeCandidate {
+      key: T;
+      distance: number;
+    }
+
+    const nodeCandidateCompare: IGetCompareValue<NodeCandidate> = (
+      candidate: NodeCandidate
+    ) => candidate.distance;
+    const candidateHeap = new MinHeap(nodeCandidateCompare);
+
+    // Initialize the min heap with the current entry point
+    candidateHeap.push({ key: entryPointKey, distance: entryPointDistance });
+
+    // Find the node with the minimal distance using greedy graph search
+    let minNodeKey = entryPointKey;
+    let minDistance = entryPointDistance;
+    const visitedNodes = new Set<T>();
+
+    while (candidateHeap.size() > 0) {
+      const curCandidate = candidateHeap.pop()!;
+      if (curCandidate.distance > minDistance) {
+        break;
+      }
+
+      const curNode = graphLayer.graph.get(curCandidate.key);
+      if (curNode === undefined) {
+        throw Error(`Cannot find node with key ${curCandidate.key}`);
+      }
+
+      for (const key of curNode.keys()) {
+        if (!visitedNodes.has(key)) {
+          // Compute the distance between the node and query
+          const curNodeInfo = this.nodes.get(key);
+          if (curNodeInfo === undefined) {
+            throw Error(`Cannot find node info with key ${key}`);
+          }
+          const distance = this.distanceFunction(curNodeInfo.value, queryValue);
+
+          // Continue explore the node's neighbors if the distance is improving
+          if (distance < minDistance) {
+            minDistance = distance;
+            minNodeKey = key;
+            candidateHeap.push({ key, distance });
+          }
+        }
+      }
+    }
+
+    return {
+      minNodeKey,
+      minDistance
+    };
+  }
 
   /**
    * Generate a random level for a node using a exponentially decaying
