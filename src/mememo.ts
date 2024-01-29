@@ -4,13 +4,18 @@
  */
 
 import { randomLcg, randomUniform } from 'd3-random';
-import { MinHeap, IGetCompareValue } from '@datastructures-js/heap';
+import { MinHeap, MaxHeap, IGetCompareValue } from '@datastructures-js/heap';
 
 export const add = (a: number, b: number) => {
   return a + b;
 };
 
 type BuiltInDistanceFunction = 'cosine' | 'cosine-normalized';
+
+interface SearchNodeCandidate<T> {
+  key: T;
+  distance: number;
+}
 
 /**
  * - 'cosine': Cosine distance
@@ -209,7 +214,7 @@ export class HNSW<T = string> {
       let minNodeKey: T = this.entryPointKey;
 
       for (let l = this.graphLayers.length - 1; l >= level + 1; l--) {
-        const result = this._searchLayerNearestOne(
+        const result = this._searchLayerEF1(
           value,
           minNodeKey,
           minDistance,
@@ -239,19 +244,14 @@ export class HNSW<T = string> {
    * @param entryPointDistance Distance between query and entry point
    * @param graphLayer Current graph layer
    */
-  _searchLayerNearestOne(
+  _searchLayerEF1(
     queryValue: number[],
     entryPointKey: T,
     entryPointDistance: number,
     graphLayer: GraphLayer<T>
   ) {
-    interface NodeCandidate {
-      key: T;
-      distance: number;
-    }
-
-    const nodeCandidateCompare: IGetCompareValue<NodeCandidate> = (
-      candidate: NodeCandidate
+    const nodeCandidateCompare: IGetCompareValue<SearchNodeCandidate<T>> = (
+      candidate: SearchNodeCandidate<T>
     ) => candidate.distance;
     const candidateHeap = new MinHeap(nodeCandidateCompare);
 
@@ -276,6 +276,7 @@ export class HNSW<T = string> {
 
       for (const key of curNode.keys()) {
         if (!visitedNodes.has(key)) {
+          visitedNodes.add(key);
           // Compute the distance between the node and query
           const curNodeInfo = this.nodes.get(key);
           if (curNodeInfo === undefined) {
@@ -297,6 +298,86 @@ export class HNSW<T = string> {
       minNodeKey,
       minDistance
     };
+  }
+
+  /**
+   * Greedy search `ef` closest points in a given layer
+   * @param queryValue Embedding value of the query point
+   * @param entryPoints Entry points of this layer
+   * @param graphLayer Current layer to search
+   * @param ef Number of neighbors to consider during search
+   */
+  _searchLayer(
+    queryValue: number[],
+    entryPoints: SearchNodeCandidate<T>[],
+    graphLayer: GraphLayer<T>,
+    ef: number
+  ) {
+    // We maintain two heaps in this function
+    // For candidate nodes, we use a min heap to get the closest node
+    // For found nearest nodes, we use a max heap to get the furthest node
+    const nodeCompare: IGetCompareValue<SearchNodeCandidate<T>> = (
+      candidate: SearchNodeCandidate<T>
+    ) => candidate.distance;
+
+    const candidateMinHeap = new MinHeap(nodeCompare);
+    const foundNodesMaxHeap = new MaxHeap(nodeCompare);
+    const visitedNodes = new Set<T>();
+
+    for (const searchNode of entryPoints) {
+      candidateMinHeap.push(searchNode);
+      foundNodesMaxHeap.push(searchNode);
+      visitedNodes.add(searchNode.key);
+    }
+
+    while (candidateMinHeap.size() > 0) {
+      const nearestCandidate = candidateMinHeap.pop()!;
+      const furthestFoundNode = foundNodesMaxHeap.root()!;
+
+      if (nearestCandidate.distance > furthestFoundNode.distance) {
+        break;
+      }
+
+      // Update candidates and found nodes using the current node's neighbors
+      const curNode = graphLayer.graph.get(nearestCandidate.key);
+      if (curNode === undefined) {
+        throw Error(`Cannot find node with key ${nearestCandidate.key}`);
+      }
+
+      for (const neighborKey of curNode.keys()) {
+        if (!visitedNodes.has(neighborKey)) {
+          visitedNodes.add(neighborKey);
+
+          // Compute the distance of the neighbor and query
+          const neighborInfo = this.nodes.get(neighborKey);
+          if (neighborInfo === undefined) {
+            throw Error(`Cannot find node with key ${neighborKey}`);
+          }
+          const distance = this.distanceFunction(
+            queryValue,
+            neighborInfo.value
+          );
+          const furthestFoundNode = foundNodesMaxHeap.root()!;
+
+          // Add this node if it is better than our found nodes or we do not
+          // have enough found nodes
+          if (
+            distance < furthestFoundNode.distance ||
+            foundNodesMaxHeap.size() < ef
+          ) {
+            candidateMinHeap.push({ key: neighborKey, distance });
+            foundNodesMaxHeap.push({ key: neighborKey, distance });
+
+            // If we have more found nodes than ef, remove the furthest point
+            if (foundNodesMaxHeap.size() > ef) {
+              foundNodesMaxHeap.pop();
+            }
+          }
+        }
+      }
+    }
+
+    return foundNodesMaxHeap.toArray();
   }
 
   /**
