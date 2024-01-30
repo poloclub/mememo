@@ -1,8 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { HNSW } from '../src/mememo';
+import { randomLcg, randomUniform } from 'd3-random';
 import embeddingDataJSON from './data/accident-report-embeddings-100.json';
 import graph10Layer1JSON from './data/insert-10-1-layer.json';
 import graph10Layer2JSON from './data/insert-10-2-layer.json';
+import graph30Layer3JSON from './data/insert-30-3-layer.json';
 
 interface EmbeddingData {
   embeddings: number[][];
@@ -13,6 +15,7 @@ const embeddingData = embeddingDataJSON as EmbeddingData;
 type GraphLayer = Record<string, Record<string, number>>;
 const graph10Layer1 = graph10Layer1JSON as GraphLayer[];
 const graph10Layer2 = graph10Layer2JSON as GraphLayer[];
+const graph30Layer3 = graph30Layer3JSON as GraphLayer[];
 
 describe('constructor', () => {
   it('constructor', () => {
@@ -100,6 +103,70 @@ describe('insert()', () => {
               1e-6
             );
           }
+        }
+      }
+    }
+  });
+
+  it('insert() 30 items, 3 layer', () => {
+    const hnsw = new HNSW({
+      distanceFunction: 'cosine',
+      seed: 262
+    });
+
+    // Insert 30 embeddings
+    const size = 30;
+
+    // The random levels with seed 262 is: [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    // 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 1, 0, 1, 1, 0, 0, 0]
+    const reportIDs: string[] = [];
+    for (let i = 0; i < size; i++) {
+      const curReportID = String(embeddingData.reportNumbers[i]);
+      reportIDs.push(curReportID);
+      hnsw.insert(curReportID, embeddingData.embeddings[i]);
+    }
+
+    expect(hnsw.graphLayers.length).toBe(3);
+
+    for (const reportID of reportIDs) {
+      for (const [l, graphLayer] of hnsw.graphLayers.entries()) {
+        const curNode = graphLayer.graph.get(reportID);
+
+        if (curNode === undefined) {
+          expect(graph30Layer3[l][reportID]).toBeUndefined();
+        } else {
+          expect(graph30Layer3[l][reportID]).not.to.toBeUndefined();
+          // Check the distances
+          const expectedNeighbors = graph30Layer3[l][reportID];
+          for (const [neighborKey, neighborDistance] of curNode.entries()) {
+            expect(neighborDistance).toBeCloseTo(
+              expectedNeighbors[neighborKey],
+              1e-6
+            );
+          }
+        }
+      }
+    }
+  });
+
+  it.skip('Find random seeds', () => {
+    // Find random seed that give a nice level sequence to test
+    const size = 30;
+    for (let i = 1; i < 10000; i++) {
+      const rng = randomLcg(i);
+      const curLevels: number[] = [];
+      const ml = 1 / Math.log(16);
+
+      for (let j = 0; j < size; j++) {
+        const level = Math.floor(-Math.log(rng()) * ml);
+        curLevels.push(level);
+      }
+
+      if (curLevels.includes(2)) {
+        const levelSum = curLevels.reduce((sum, value) => sum + value, 0);
+        if (levelSum > 6) {
+          console.log('Good seed: ', i);
+          break;
         }
       }
     }
