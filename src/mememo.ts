@@ -196,7 +196,7 @@ export class HNSW<T = string> {
 
     // Randomly determine the max level of this node
     const level = this._getRandomLevel();
-    console.log('random level:', level);
+    // console.log('random level:', level);
 
     // Add this node to the node index first
     this.nodes.set(key, new Node(key, value));
@@ -464,7 +464,9 @@ export class HNSW<T = string> {
     candidates: SearchNodeCandidate<T>[],
     maxSize: number
   ) {
-    if (candidates.length <= maxSize) {
+    // candidates.length <= maxSize is more "correct", use < to be consistent
+    // with other packages
+    if (candidates.length < maxSize) {
       return candidates;
     }
 
