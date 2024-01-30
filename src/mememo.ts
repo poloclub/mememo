@@ -203,7 +203,6 @@ export class HNSW<T = string> {
 
     if (this.entryPointKey !== null) {
       // (1): Search closest point from layers above
-      // Top layer => all layers above the new node's highest layer
       const entryPointInfo = this.nodes.get(this.entryPointKey);
       if (entryPointInfo === undefined) {
         throw Error(`Can't find node info of ${this.entryPointKey}`);
@@ -213,6 +212,7 @@ export class HNSW<T = string> {
       let minDistance = this.distanceFunction(value, entryPointInfo.value);
       let minNodeKey: T = this.entryPointKey;
 
+      // Top layer => all layers above the new node's highest layer
       for (let l = this.graphLayers.length - 1; l >= level + 1; l--) {
         const result = this._searchLayerEF1(
           value,
@@ -224,8 +224,73 @@ export class HNSW<T = string> {
         minNodeKey = result.minNodeKey;
       }
 
-      // (2): Insert the node
+      // (2): Insert the node from its random layer to layer 0
+      let entryPoints: SearchNodeCandidate<T>[] = [
+        { key: minNodeKey, distance: minDistance }
+      ];
+
       // New node's highest layer => layer 0
+      const nodeHightLayerLevel = Math.min(this.graphLayers.length - 1, level);
+      for (let l = nodeHightLayerLevel; l >= 0; l--) {
+        // Layer 0 could have a different neighbor size constraint
+        const levelM = l === 0 ? this.mMax0 : this.m;
+
+        // Search for closest points at this level to connect with
+        entryPoints = this._searchLayer(
+          value,
+          entryPoints,
+          this.graphLayers[l],
+          this.efConstruction
+        );
+
+        // Prune the neighbors so we have at most levelM neighbors
+        const selectedNeighbors = this._selectNeighborsHeuristic(
+          entryPoints,
+          levelM
+        );
+
+        // Insert the new node
+        const newNode = new Map<T, number>();
+        for (const neighbor of selectedNeighbors) {
+          newNode.set(neighbor.key, neighbor.distance);
+        }
+        this.graphLayers[l].graph.set(key, newNode);
+
+        // We also need to update this new node's neighbors so that their
+        // neighborhood include this new node
+        for (const neighbor of selectedNeighbors) {
+          const neighborNode = this.graphLayers[l].graph.get(neighbor.key);
+          if (neighborNode === undefined) {
+            throw Error(`Can't find neighbor node ${neighbor.key}`);
+          }
+
+          // Add the neighbor's existing neighbors as candidates
+          const neighborNeighborCandidates: SearchNodeCandidate<T>[] = [];
+          for (const [key, distance] of neighborNode.entries()) {
+            const candidate: SearchNodeCandidate<T> = { key, distance };
+            neighborNeighborCandidates.push(candidate);
+          }
+
+          // Add the new node as a candidate as well
+          neighborNeighborCandidates.push({ key, distance: neighbor.distance });
+
+          // Apply the same heuristic to prune the neighbor's neighbors
+          const selectedNeighborNeighbors = this._selectNeighborsHeuristic(
+            neighborNeighborCandidates,
+            levelM
+          );
+
+          // Update this neighbor's neighborhood
+          const newNeighborNode = new Map<T, number>();
+          for (const neighborNeighbor of selectedNeighborNeighbors) {
+            newNeighborNode.set(
+              neighborNeighbor.key,
+              neighborNeighbor.distance
+            );
+          }
+          this.graphLayers[l].graph.set(neighbor.key, newNeighborNode);
+        }
+      }
     }
 
     // If the level is beyond current layers, extend the layers
@@ -378,6 +443,81 @@ export class HNSW<T = string> {
     }
 
     return foundNodesMaxHeap.toArray();
+  }
+
+  /**
+   * Simple heuristic to select neighbors. This function is different from
+   * SELECT-NEIGHBORS-HEURISTIC in the HNSW paper. This function is based on
+   * hnswlib and datasketch's implementations.
+   * When selecting a neighbor, we compare the distance between selected
+   * neighbors and the potential neighbor to the distance between the inserted
+   * point and the potential neighbor. We favor neighbors that are further
+   * away from selected neighbors to improve diversity.
+   *
+   * https://github.com/nmslib/hnswlib/blob/978f7137bc9555a1b61920f05d9d0d8252ca9169/hnswlib/hnswalg.h#L382
+   * https://github.com/ekzhu/datasketch/blob/9973b09852a5018f23d831b1868da3a5d2ce6a3b/datasketch/hnsw.py#L832
+   *
+   * @param candidates Potential neighbors to select from
+   * @param maxSize Max neighbors to connect to
+   */
+  _selectNeighborsHeuristic(
+    candidates: SearchNodeCandidate<T>[],
+    maxSize: number
+  ) {
+    if (candidates.length <= maxSize) {
+      return candidates;
+    }
+
+    const nodeCompare: IGetCompareValue<SearchNodeCandidate<T>> = (
+      candidate: SearchNodeCandidate<T>
+    ) => candidate.distance;
+
+    const candidateMinHeap = new MinHeap(nodeCompare);
+    for (const candidate of candidates) {
+      candidateMinHeap.insert(candidate);
+    }
+
+    const selectedNeighbors: SearchNodeCandidate<T>[] = [];
+
+    while (candidateMinHeap.size() > 0) {
+      if (selectedNeighbors.length >= maxSize) {
+        return selectedNeighbors;
+      }
+
+      const candidate = candidateMinHeap.pop()!;
+      let isCandidateFarFromExistingNeighbors = true;
+
+      // Iterate selected neighbors to see if the candidate is further away
+      for (const selectedNeighbor of selectedNeighbors) {
+        const candidateInfo = this.nodes.get(candidate.key);
+        if (candidateInfo === undefined) {
+          throw Error(`Can't find node with key ${candidate.key}`);
+        }
+
+        const neighborInfo = this.nodes.get(selectedNeighbor.key);
+        if (neighborInfo === undefined) {
+          throw Error(`Can't find node with key ${selectedNeighbor.key}`);
+        }
+
+        const distanceCandidateToNeighbor = this.distanceFunction(
+          candidateInfo.value,
+          neighborInfo.value
+        );
+
+        // Reject the candidate if
+        // d(candidate, any approved candidate) < d(candidate, new node)
+        if (distanceCandidateToNeighbor < candidate.distance) {
+          isCandidateFarFromExistingNeighbors = false;
+          break;
+        }
+      }
+
+      if (isCandidateFarFromExistingNeighbors) {
+        selectedNeighbors.push(candidate);
+      }
+    }
+
+    return selectedNeighbors;
   }
 
   /**
