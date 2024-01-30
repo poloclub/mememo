@@ -200,6 +200,10 @@ export class HNSW<T = string> {
 
     // Randomly determine the max level of this node
     const level = this._getRandomLevel();
+    console.log('random level:', level);
+
+    // Add this node to the node index first
+    this.nodes.set(key, new Node(key, value));
 
     if (this.entryPointKey !== null) {
       // (1): Search closest point from layers above

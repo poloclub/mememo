@@ -1,12 +1,18 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import { add, HNSW } from '../src/mememo';
 import embeddingDataJSON from './data/accident-report-embeddings-100.json';
+import graph10Layer0JSON from './data/insert-10-layer-0.json';
 
 interface EmbeddingData {
   embeddings: number[][];
   reportNumbers: number[];
 }
 const embeddingData = embeddingDataJSON as EmbeddingData;
+
+const graph10Layer0 = graph10Layer0JSON as Record<
+  string,
+  Record<string, number>
+>;
 
 test('add()', () => {
   expect(add(10, 1)).toBe(11);
@@ -20,14 +26,49 @@ test('constructor', () => {
   });
 });
 
-test('insert()', () => {
+//==========================================================================||
+//                                 Insert                                   ||
+//==========================================================================||
+
+test('insert() 10 items, 1 layer', () => {
   const hnsw = new HNSW({
-    distanceFunction: 'cosine'
+    distanceFunction: 'cosine',
+    seed: 20240101
   });
 
-  const embedding = embeddingData.embeddings[0];
-  hnsw.insert('name', embedding);
+  // Insert 10 embeddings
+  const size = 10;
+
+  // The random levels with this seed is 0,0,0,0,0,0,0,0,0,0
+  const reportIDs: string[] = [];
+  for (let i = 0; i < size; i++) {
+    const curReportID = String(embeddingData.reportNumbers[i]);
+    reportIDs.push(curReportID);
+    hnsw.insert(curReportID, embeddingData.embeddings[i]);
+  }
+
+  // There should be only one layer, and all nodes are fully connected
+  expect(hnsw.graphLayers.length).toBe(1);
+
+  for (const reportID of reportIDs) {
+    const curNode = hnsw.graphLayers[0].graph.get(reportID);
+    expect(curNode).to.not.toBeUndefined();
+    expect(curNode!.size).toBe(9);
+
+    // Test the distances
+    const expectedNeighbors = graph10Layer0[reportID];
+    for (const [neighborKey, neighborDistance] of curNode!.entries()) {
+      expect(neighborDistance).toBeCloseTo(
+        expectedNeighbors[neighborKey],
+        1e-6
+      );
+    }
+  }
 });
+
+//==========================================================================||
+//                          Helper Functions                                ||
+//==========================================================================||
 
 test('_getRandomLevel()', () => {
   const hnsw = new HNSW({
