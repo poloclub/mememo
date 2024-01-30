@@ -186,8 +186,10 @@ export class HNSW<T = string> {
    * Insert a new element to the index.
    * @param key Key of the new element.
    * @param value The embedding of the new element to insert.
+   * @param maxLevel The max layer to insert this element. You don't need to set
+   * this value in most cases. We add this parameter for testing purpose.
    */
-  insert(key: T, value: number[]) {
+  insert(key: T, value: number[], maxLevel?: number | undefined) {
     // If the key already exists, update the node
     if (this.nodes.has(key)) {
       // TODO: Update the node
@@ -195,8 +197,8 @@ export class HNSW<T = string> {
     }
 
     // Randomly determine the max level of this node
-    const level = this._getRandomLevel();
-    // console.log('random level:', level);
+    const level = maxLevel === undefined ? this._getRandomLevel() : maxLevel;
+    console.log('random level:', level);
 
     // Add this node to the node index first
     this.nodes.set(key, new Node(key, value));
