@@ -6,10 +6,6 @@
 import { randomLcg, randomUniform } from 'd3-random';
 import { MinHeap, MaxHeap, IGetCompareValue } from '@datastructures-js/heap';
 
-export const add = (a: number, b: number) => {
-  return a + b;
-};
-
 type BuiltInDistanceFunction = 'cosine' | 'cosine-normalized';
 
 interface SearchNodeCandidate<T> {
