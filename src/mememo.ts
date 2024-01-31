@@ -190,10 +190,12 @@ export class HNSW<T = string> {
    * this value in most cases. We add this parameter for testing purpose.
    */
   insert(key: T, value: number[], maxLevel?: number | undefined) {
-    // If the key already exists, update the node
+    // If the key already exists, throw an error
     if (this.nodes.has(key)) {
-      // TODO: Update the node
-      return;
+      throw Error(
+        `There is already a node with key ${key} in the index. ` +
+          'Use update() to update this node.'
+      );
     }
 
     // Randomly determine the max level of this node
@@ -306,9 +308,12 @@ export class HNSW<T = string> {
    * @param key Key of the element.
    * @param value The new embedding of the element
    */
-  _update(key: T, value: number[]) {
+  update(key: T, value: number[]) {
     if (!this.nodes.has(key)) {
-      throw Error(`The node with key ${key} does not exist.`);
+      throw Error(
+        `The node with key ${key} does not exist. ` +
+          'Use insert() to add new node.'
+      );
     }
 
     this.nodes.set(key, new Node(key, value));
@@ -454,6 +459,9 @@ export class HNSW<T = string> {
           /** Here ef + 1 because this node is already in the index */
           this.efConstruction + 1
         );
+
+        // Remove the current node itself as it would be selected (0 distance)
+        entryPoints = entryPoints.filter(d => d.key !== key);
 
         // Prune the neighbors so we have at most levelM neighbors
         const selectedNeighbors = this._selectNeighborsHeuristic(
