@@ -407,8 +407,68 @@ export class HNSW<T = string> {
     this._reIndexNode(key, value);
   }
 
+  /**
+   * Re-index an existing element's outgoing edges by repeating the insert()
+   * algorithm (without updating its neighbor's edges)
+   * @param key Key of an existing element
+   * @param value Embedding value of an existing element
+   */
   _reIndexNode(key: T, value: number[]) {
-    // Pass
+    if (this.entryPointKey === null) {
+      throw Error('entryPointKey is null');
+    }
+
+    let minNodeKey: T = this.entryPointKey;
+    const entryPointInfo = this._getNodeInfo(minNodeKey);
+    let minNodeDistance = this.distanceFunction(entryPointInfo.value, value);
+    let entryPoints: SearchNodeCandidate<T>[] = [
+      { key: minNodeKey, distance: minNodeDistance }
+    ];
+
+    // Iterating through the top layer to layer 0
+    // If the node is not in the layer => ef = 1 search
+    // If the node is in the layer => ef search
+    for (let l = this.graphLayers.length - 1; l >= 0; l--) {
+      const curGraphLayer = this.graphLayers[l];
+
+      if (!curGraphLayer.graph.has(key)) {
+        // Layers above: Ef = 1 search
+        const result = this._searchLayerEF1(
+          value,
+          minNodeKey,
+          minNodeDistance,
+          curGraphLayer
+        );
+        minNodeKey = result.minNodeKey;
+        minNodeDistance = result.minDistance;
+      } else {
+        // The node's top layer and layer below: EF search
+        // Layer 0 could have a different neighbor size constraint
+        const levelM = l === 0 ? this.mMax0 : this.m;
+
+        // Search for closest points at this level to connect with
+        entryPoints = this._searchLayer(
+          value,
+          entryPoints,
+          curGraphLayer,
+          /** Here ef + 1 because this node is already in the index */
+          this.efConstruction + 1
+        );
+
+        // Prune the neighbors so we have at most levelM neighbors
+        const selectedNeighbors = this._selectNeighborsHeuristic(
+          entryPoints,
+          levelM
+        );
+
+        // Update the node's neighbors
+        const newNode = new Map<T, number>();
+        for (const neighbor of selectedNeighbors) {
+          newNode.set(neighbor.key, neighbor.distance);
+        }
+        curGraphLayer.graph.set(key, newNode);
+      }
+    }
   }
 
   /**
