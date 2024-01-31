@@ -252,28 +252,28 @@ describe('insert()', () => {
     }
   });
 
-  it.skip('Find random seeds', () => {
-    // Find random seed that give a nice level sequence to test
-    const size = 100;
-    for (let i = 1; i < 100000; i++) {
-      const rng = randomLcg(i);
-      const curLevels: number[] = [];
-      const ml = 1 / Math.log(16);
+  // it('Find random seeds', () => {
+  //   // Find random seed that give a nice level sequence to test
+  //   const size = 100;
+  //   for (let i = 1; i < 100000; i++) {
+  //     const rng = randomLcg(i);
+  //     const curLevels: number[] = [];
+  //     const ml = 1 / Math.log(16);
 
-      for (let j = 0; j < size; j++) {
-        const level = Math.floor(-Math.log(rng()) * ml);
-        curLevels.push(level);
-      }
+  //     for (let j = 0; j < size; j++) {
+  //       const level = Math.floor(-Math.log(rng()) * ml);
+  //       curLevels.push(level);
+  //     }
 
-      if (Math.max(...curLevels) < 4) {
-        const levelSum = curLevels.reduce((sum, value) => sum + value, 0);
-        if (levelSum > 20) {
-          console.log('Good seed: ', i);
-          break;
-        }
-      }
-    }
-  });
+  //     if (Math.max(...curLevels) < 4) {
+  //       const levelSum = curLevels.reduce((sum, value) => sum + value, 0);
+  //       if (levelSum > 20) {
+  //         console.log('Good seed: ', i);
+  //         break;
+  //       }
+  //     }
+  //   }
+  // });
 });
 
 //==========================================================================||
