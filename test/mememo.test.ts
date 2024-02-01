@@ -8,6 +8,8 @@ import graph30Layer3JSON from './data/insert-30-3-layer.json';
 import graph100Layer6JSON from './data/insert-100-6-layer.json';
 import graph100Layer3M3JSON from './data/insert-100-3-layer-m=3.json';
 import graph50Update10JSON from './data/update-50-3-layer-10.json';
+import graph50Delete1JSON from './data/delete-50-insert-30-delete-20-insert-20.json';
+import graph50Delete2JSON from './data/delete-50-insert-30-delete-20-undelete-10-insert-20.json';
 
 interface EmbeddingData {
   embeddings: number[][];
@@ -23,6 +25,8 @@ const graph30Layer3 = graph30Layer3JSON as GraphLayer[];
 const graph100Layer6 = graph100Layer6JSON as GraphLayer[];
 const graph100Layer3M3 = graph100Layer3M3JSON as GraphLayer[];
 const graph50Update10 = graph50Update10JSON as GraphLayer[];
+const graph50Delete1 = graph50Delete1JSON as GraphLayer[];
+const graph50Delete2 = graph50Delete2JSON as GraphLayer[];
 
 /**
  * Check if the graphs in HNSW match the expected graph layers from json
@@ -195,7 +199,8 @@ describe('insert()', () => {
   it.skip('Find random seeds', () => {
     // Find random seed that give a nice level sequence to test
     const size = 50;
-    for (let i = 1; i < 100000; i++) {
+    const start = 100000;
+    for (let i = start; i < start + 100000; i++) {
       const rng = randomLcg(i);
       const curLevels: number[] = [];
       const ml = 1 / Math.log(16);
@@ -263,6 +268,105 @@ describe('update()', () => {
 
     expect(hnsw.graphLayers.length).toBe(3);
     _checkGraphLayers(reportIDs, hnsw, graph50Update10);
+  });
+});
+
+//==========================================================================||
+//                                 Delete                                   ||
+//==========================================================================||
+
+describe('markDelete()', () => {
+  it('markDelete(): insert 30 => delete 20 => insert 20', () => {
+    const hnsw = new HNSW({
+      distanceFunction: 'cosine',
+      seed: 113082
+    });
+
+    // Insert 50 embeddings
+    const size = 50;
+
+    // The random levels with this seed is [1, 0, 2, 0, 0, 0, 0, 1, 1, 0, 2, 0,
+    // 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0,
+    // 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0]
+    const reportIDs: string[] = [];
+
+    // Insert 30 nodes
+    for (let i = 0; i < 30; i++) {
+      const curReportID = String(embeddingData.reportNumbers[i]);
+      reportIDs.push(curReportID);
+      hnsw.insert(curReportID, embeddingData.embeddings[i]);
+    }
+
+    // Delete 30 random nodes
+    const deleteIndexes = [
+      7, 12, 4, 14, 20, 27, 5, 21, 2, 19, 10, 15, 24, 6, 3, 0, 22, 8, 11, 1
+    ];
+
+    for (const i of deleteIndexes) {
+      const key = String(embeddingData.reportNumbers[i]);
+      hnsw.markDeleted(key);
+    }
+
+    // Insert the rest 20 nodes
+    for (let i = 30; i < size; i++) {
+      const curReportID = String(embeddingData.reportNumbers[i]);
+      reportIDs.push(curReportID);
+      hnsw.insert(curReportID, embeddingData.embeddings[i]);
+    }
+
+    expect(hnsw.graphLayers.length).toBe(2);
+    _checkGraphLayers(reportIDs, hnsw, graph50Delete1);
+  });
+
+  it('markDelete(): insert 30 => delete 20 => un-delete 10 => insert 20', () => {
+    const hnsw = new HNSW({
+      distanceFunction: 'cosine',
+      seed: 113082
+    });
+
+    // Insert 50 embeddings
+    const size = 50;
+
+    // The random levels with this seed is [1, 0, 2, 0, 0, 0, 0, 1, 1, 0, 2, 0,
+    // 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0,
+    // 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0]
+    const reportIDs: string[] = [];
+
+    // Insert 30 nodes
+    for (let i = 0; i < 30; i++) {
+      const curReportID = String(embeddingData.reportNumbers[i]);
+      reportIDs.push(curReportID);
+      hnsw.insert(curReportID, embeddingData.embeddings[i]);
+    }
+
+    // Delete 20 random nodes
+    const deleteIndexes = [
+      7, 12, 4, 14, 20, 27, 5, 21, 2, 19, 10, 15, 24, 6, 3, 0, 22, 8, 11, 1
+    ];
+
+    for (const i of deleteIndexes) {
+      const key = String(embeddingData.reportNumbers[i]);
+      hnsw.markDeleted(key);
+    }
+
+    // Un-delete 10 random nodes
+    const unDeleteIndexes = [12, 22, 4, 14, 19, 5, 2, 15, 21, 0];
+
+    for (const i of unDeleteIndexes) {
+      const key = String(embeddingData.reportNumbers[i]);
+      hnsw.unMarkDeleted(key);
+    }
+
+    // Insert the rest 20 nodes
+    for (let i = 30; i < size; i++) {
+      const curReportID = String(embeddingData.reportNumbers[i]);
+      reportIDs.push(curReportID);
+      hnsw.insert(curReportID, embeddingData.embeddings[i]);
+    }
+
+    expect(hnsw.graphLayers.length).toBe(2);
+    // graph50Delete2 is actually the same as graph50Delete1
+    _checkGraphLayers(reportIDs, hnsw, graph50Delete2);
   });
 });
 

@@ -570,12 +570,14 @@ export class HNSW<T = string> {
    * @param entryPointKey Current entry point of this layer
    * @param entryPointDistance Distance between query and entry point
    * @param graphLayer Current graph layer
+   * @param canReturnDeletedNodes Whether to return deleted nodes
    */
   _searchLayerEF1(
     queryValue: number[],
     entryPointKey: T,
     entryPointDistance: number,
-    graphLayer: GraphLayer<T>
+    graphLayer: GraphLayer<T>,
+    canReturnDeletedNode = true
   ) {
     const nodeCandidateCompare: IGetCompareValue<SearchNodeCandidate<T>> = (
       candidate: SearchNodeCandidate<T>
@@ -612,7 +614,7 @@ export class HNSW<T = string> {
           if (distance < minDistance) {
             // If the current node is marked as deleted, we do not return it as
             // a candidate, but we continue explore its neighbor
-            if (!curNodeInfo.isDeleted) {
+            if (!curNodeInfo.isDeleted || canReturnDeletedNode) {
               minDistance = distance;
               minNodeKey = key;
             }
@@ -634,12 +636,14 @@ export class HNSW<T = string> {
    * @param entryPoints Entry points of this layer
    * @param graphLayer Current layer to search
    * @param ef Number of neighbors to consider during search
+   * @param canReturnDeletedNodes Whether to return deleted nodes
    */
   _searchLayer(
     queryValue: number[],
     entryPoints: SearchNodeCandidate<T>[],
     graphLayer: GraphLayer<T>,
-    ef: number
+    ef: number,
+    canReturnDeletedNodes = true
   ) {
     // We maintain two heaps in this function
     // For candidate nodes, we use a min heap to get the closest node
@@ -692,7 +696,7 @@ export class HNSW<T = string> {
           ) {
             // If the current neighbor is marked as deleted, we do not return it
             // as a found node, but we continue explore its neighbor
-            if (!neighborInfo.isDeleted) {
+            if (!neighborInfo.isDeleted || canReturnDeletedNodes) {
               foundNodesMaxHeap.push({ key: neighborKey, distance });
             }
             candidateMinHeap.push({ key: neighborKey, distance });
