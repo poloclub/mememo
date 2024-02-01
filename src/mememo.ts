@@ -498,6 +498,59 @@ export class HNSW<T = string> {
   }
 
   /**
+   * Find k nearest neighbors of the query point
+   * @param value Embedding value
+   * @param k k nearest neighbors of the query value
+   * @param ef Number of neighbors to search at each step
+   */
+  query(
+    value: number[],
+    k: number | undefined = undefined,
+    ef: number | undefined = this.efConstruction
+  ) {
+    if (this.entryPointKey === null) {
+      throw Error('Index is not initialized yet');
+    }
+
+    // EF=1 search from the top layer to layer 1
+    let minNodeKey: T = this.entryPointKey;
+    const entryPointInfo = this._getNodeInfo(minNodeKey);
+    let minNodeDistance = this.distanceFunction(entryPointInfo.value, value);
+
+    for (let l = this.graphLayers.length - 1; l >= 1; l--) {
+      const result = this._searchLayerEF1(
+        value,
+        minNodeKey,
+        minNodeDistance,
+        this.graphLayers[l],
+        false
+      );
+      minNodeKey = result.minNodeKey;
+      minNodeDistance = result.minDistance;
+    }
+
+    // EF search on layer 0
+    const entryPoints: SearchNodeCandidate<T>[] = [
+      { key: minNodeKey, distance: minNodeDistance }
+    ];
+    const candidates = this._searchLayer(
+      value,
+      entryPoints,
+      this.graphLayers[0],
+      ef,
+      false
+    );
+
+    candidates.sort((a, b) => a.distance - b.distance);
+
+    if (k === undefined) {
+      return candidates;
+    } else {
+      return candidates.slice(0, k);
+    }
+  }
+
+  /**
    * Re-index an existing element's outgoing edges by repeating the insert()
    * algorithm (without updating its neighbor's edges)
    * @param key Key of an existing element
