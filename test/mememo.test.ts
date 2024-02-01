@@ -10,14 +10,24 @@ import graph100Layer3M3JSON from './data/insert-100-3-layer-m=3.json';
 import graph50Update10JSON from './data/update-50-3-layer-10.json';
 import graph50Delete1JSON from './data/delete-50-insert-30-delete-20-insert-20.json';
 import graph50Delete2JSON from './data/delete-50-insert-30-delete-20-undelete-10-insert-20.json';
+import query1JSON from './data/query-50.json';
 
 interface EmbeddingData {
   embeddings: number[][];
   reportNumbers: number[];
 }
-const embeddingData = embeddingDataJSON as EmbeddingData;
 
 type GraphLayer = Record<string, Record<string, number | undefined>>;
+
+type QueryResult = [string, number];
+
+interface QueryData {
+  i: number;
+  k: number;
+  result: QueryResult[];
+}
+
+const embeddingData = embeddingDataJSON as EmbeddingData;
 
 const graph10Layer1 = graph10Layer1JSON as GraphLayer[];
 const graph10Layer2 = graph10Layer2JSON as GraphLayer[];
@@ -27,6 +37,8 @@ const graph100Layer3M3 = graph100Layer3M3JSON as GraphLayer[];
 const graph50Update10 = graph50Update10JSON as GraphLayer[];
 const graph50Delete1 = graph50Delete1JSON as GraphLayer[];
 const graph50Delete2 = graph50Delete2JSON as GraphLayer[];
+
+const query1 = query1JSON as QueryData[];
 
 /**
  * Check if the graphs in HNSW match the expected graph layers from json
@@ -367,6 +379,69 @@ describe('markDelete()', () => {
     expect(hnsw.graphLayers.length).toBe(2);
     // graph50Delete2 is actually the same as graph50Delete1
     _checkGraphLayers(reportIDs, hnsw, graph50Delete2);
+  });
+});
+
+//==========================================================================||
+//                                 query                                    ||
+//==========================================================================||
+
+describe('query()', () => {
+  it('query(): 90/50 items, insert 30 => delete 20 => un-delete 10 => insert 20', () => {
+    const hnsw = new HNSW({
+      distanceFunction: 'cosine',
+      seed: 113082
+    });
+
+    // Insert 50 embeddings
+    const size = 50;
+
+    // The random levels with this seed is [1, 0, 2, 0, 0, 0, 0, 1, 1, 0, 2, 0,
+    // 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0,
+    // 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0]
+    const reportIDs: string[] = [];
+
+    // Insert 30 nodes
+    for (let i = 0; i < 30; i++) {
+      const curReportID = String(embeddingData.reportNumbers[i]);
+      reportIDs.push(curReportID);
+      hnsw.insert(curReportID, embeddingData.embeddings[i]);
+    }
+
+    // Delete 20 random nodes
+    const deleteIndexes = [
+      7, 12, 4, 14, 20, 27, 5, 21, 2, 19, 10, 15, 24, 6, 3, 0, 22, 8, 11, 1
+    ];
+
+    for (const i of deleteIndexes) {
+      const key = String(embeddingData.reportNumbers[i]);
+      hnsw.markDeleted(key);
+    }
+
+    // Un-delete 10 random nodes
+    const unDeleteIndexes = [12, 22, 4, 14, 19, 5, 2, 15, 21, 0];
+
+    for (const i of unDeleteIndexes) {
+      const key = String(embeddingData.reportNumbers[i]);
+      hnsw.unMarkDeleted(key);
+    }
+
+    // Insert the rest 20 nodes
+    for (let i = 30; i < size; i++) {
+      const curReportID = String(embeddingData.reportNumbers[i]);
+      reportIDs.push(curReportID);
+      hnsw.insert(curReportID, embeddingData.embeddings[i]);
+    }
+
+    // Check query results
+    for (const q of query1) {
+      const myResults = hnsw.query(embeddingData.embeddings[q.i], q.k);
+      expect(myResults.length).toBe(q.result.length);
+      for (const [i, myResult] of myResults.entries()) {
+        expect(myResult.key).toBe(q.result[i][0]);
+        expect(myResult.distance).toBeCloseTo(q.result[i][1], 4);
+      }
+    }
   });
 });
 
