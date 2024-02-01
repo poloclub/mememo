@@ -78,9 +78,13 @@ class Node<T> {
   /** The embedding value of the element. */
   value: number[];
 
+  /** Whether the node is marked as deleted. */
+  isDeleted: boolean;
+
   constructor(key: T, value: number[]) {
     this.key = key;
     this.value = value;
+    this.isDeleted = false;
   }
 }
 
@@ -192,6 +196,15 @@ export class HNSW<T = string> {
   insert(key: T, value: number[], maxLevel?: number | undefined) {
     // If the key already exists, throw an error
     if (this.nodes.has(key)) {
+      const nodeInfo = this._getNodeInfo(key);
+
+      if (nodeInfo.isDeleted) {
+        // The node was flagged as deleted, so we update it using the new value
+        nodeInfo.isDeleted = false;
+        this.update(key, value);
+        return;
+      }
+
       throw Error(
         `There is already a node with key ${key} in the index. ` +
           'Use update() to update this node.'
@@ -413,6 +426,78 @@ export class HNSW<T = string> {
   }
 
   /**
+   * Mark an element in the index as deleted.
+   * This function does not delete the node from memory, but just remove it from
+   * query result in the future. Future queries can still use this node to reach
+   * other nodes. Future insertions will not add new edge to this node.
+   *
+   * See https://github.com/nmslib/hnswlib/issues/4 for discussion on the
+   * challenges of deleting items in HNSW
+   *
+   * @param key Key of the node to delete
+   */
+  markDeleted(key: T) {
+    if (!this.nodes.has(key)) {
+      throw Error(`Node with key ${key} does not exist.`);
+    }
+
+    // Special case: the user is trying to delete the entry point
+    // We move the entry point to a neighbor or clean the entire graph if the
+    // node is the last node
+    if (this.entryPointKey === key) {
+      let newEntryPointKey: T | null = null;
+      // Traverse from top layer to layer 0
+      for (let i = this.graphLayers.length - 1; i >= 0; i--) {
+        for (const otherKey of this.graphLayers[i].graph.keys()) {
+          if (otherKey !== key && !this.nodes.get(otherKey)!.isDeleted) {
+            newEntryPointKey = otherKey;
+            break;
+          }
+        }
+
+        if (newEntryPointKey !== null) {
+          break;
+        } else {
+          // There is no more nodes in this layer, we can remove it.
+          this.graphLayers.splice(i, 1);
+        }
+      }
+
+      if (newEntryPointKey === null) {
+        // There is no nodes in the index
+        this.clear();
+        return;
+      }
+
+      this.entryPointKey = newEntryPointKey;
+    }
+
+    const nodeInfo = this._getNodeInfo(key);
+    nodeInfo.isDeleted = true;
+  }
+
+  /**
+   * UnMark a deleted element in the index.
+   *
+   * See https://github.com/nmslib/hnswlib/issues/4 for discussion on the
+   * challenges of deleting items in HNSW
+   *
+   * @param key Key of the node to recover
+   */
+  unMarkDeleted(key: T) {
+    const nodeInfo = this._getNodeInfo(key);
+    nodeInfo.isDeleted = false;
+  }
+
+  /**
+   * Reset the index.
+   */
+  clear() {
+    this.graphLayers = [];
+    this.nodes = new Map<T, Node<T>>();
+  }
+
+  /**
    * Re-index an existing element's outgoing edges by repeating the insert()
    * algorithm (without updating its neighbor's edges)
    * @param key Key of an existing element
@@ -525,8 +610,12 @@ export class HNSW<T = string> {
 
           // Continue explore the node's neighbors if the distance is improving
           if (distance < minDistance) {
-            minDistance = distance;
-            minNodeKey = key;
+            // If the current node is marked as deleted, we do not return it as
+            // a candidate, but we continue explore its neighbor
+            if (!curNodeInfo.isDeleted) {
+              minDistance = distance;
+              minNodeKey = key;
+            }
             candidateHeap.push({ key, distance });
           }
         }
@@ -601,8 +690,12 @@ export class HNSW<T = string> {
             distance < furthestFoundNode.distance ||
             foundNodesMaxHeap.size() < ef
           ) {
+            // If the current neighbor is marked as deleted, we do not return it
+            // as a found node, but we continue explore its neighbor
+            if (!neighborInfo.isDeleted) {
+              foundNodesMaxHeap.push({ key: neighborKey, distance });
+            }
             candidateMinHeap.push({ key: neighborKey, distance });
-            foundNodesMaxHeap.push({ key: neighborKey, distance });
 
             // If we have more found nodes than ef, remove the furthest point
             if (foundNodesMaxHeap.size() > ef) {
