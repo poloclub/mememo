@@ -1,7 +1,9 @@
 import { LitElement, css, unsafeCSS, html, PropertyValues } from 'lit';
 import { customElement, property, state, query } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
-import { pipeline } from '@xenova/transformers';
+import { EmbeddingModel } from '../../workers/embedding';
+
+import type { EmbeddingWorkerMessage } from '../../workers/embedding';
 
 import componentCSS from './prompt-panel.css?inline';
 import EmbeddingWorkerInline from '../../workers/embedding?worker&inline';
@@ -17,12 +19,25 @@ export class MememoPromptPanel extends LitElement {
   //==========================================================================||
   embeddingWorker: Worker;
 
+  embeddingWorkerRequestCount = 0;
+
+  get embeddingWorkerRequestID() {
+    this.embeddingWorkerRequestCount++;
+    return `prompt-panel-${this.embeddingWorkerRequestCount}`;
+  }
+
   //==========================================================================||
   //                             Lifecycle Methods                            ||
   //==========================================================================||
   constructor() {
     super();
     this.embeddingWorker = new EmbeddingWorkerInline();
+    this.embeddingWorker.addEventListener(
+      'message',
+      (e: MessageEvent<EmbeddingWorkerMessage>) => {
+        this.embeddingWorkerMessageHandler(e);
+      }
+    );
   }
 
   firstUpdated() {
@@ -40,11 +55,42 @@ export class MememoPromptPanel extends LitElement {
   //==========================================================================||
   async initData() {}
 
-  async getEmbedding() {}
+  getEmbedding() {
+    const message: EmbeddingWorkerMessage = {
+      command: 'startExtractEmbedding',
+      payload: {
+        detail: '',
+        requestID: this.embeddingWorkerRequestID,
+        model: EmbeddingModel.gteSmall,
+        sentences: ['Hello, how are you', 'yo']
+      }
+    };
+    this.embeddingWorker.postMessage(message);
+  }
 
   //==========================================================================||
   //                              Event Handlers                              ||
   //==========================================================================||
+
+  embeddingWorkerMessageHandler(e: MessageEvent<EmbeddingWorkerMessage>) {
+    switch (e.data.command) {
+      case 'finishExtractEmbedding': {
+        const embeddings = e.data.payload.embeddings;
+        console.log(embeddings);
+        break;
+      }
+
+      case 'error': {
+        console.error('Worker error: ', e.data.payload.message);
+        break;
+      }
+
+      default: {
+        console.error('Worker: unknown message', e.data.command);
+        break;
+      }
+    }
+  }
 
   //==========================================================================||
   //                             Private Helpers                              ||

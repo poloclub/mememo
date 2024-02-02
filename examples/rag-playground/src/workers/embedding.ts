@@ -10,7 +10,7 @@ export type EmbeddingWorkerMessage =
       command: 'startExtractEmbedding';
       payload: {
         requestID: string;
-        text: string;
+        sentences: string[];
         model: EmbeddingModel;
         detail: string;
       };
@@ -19,10 +19,10 @@ export type EmbeddingWorkerMessage =
       command: 'finishExtractEmbedding';
       payload: {
         requestID: string;
-        text: string;
+        sentences: string[];
         model: EmbeddingModel;
         detail: string;
-        embedding: number[];
+        embeddings: number[][];
       };
     }
   | {
@@ -40,25 +40,55 @@ const extractors: Record<EmbeddingModel, Promise<FeatureExtractionPipeline>> = {
 };
 
 /**
+ * Helper function to handle calls from the main thread
+ * @param e Message event
+ */
+self.onmessage = (e: MessageEvent<EmbeddingWorkerMessage>) => {
+  switch (e.data.command) {
+    case 'startExtractEmbedding': {
+      const { model, sentences, requestID, detail } = e.data.payload;
+      startExtractEmbedding(model, sentences, requestID, detail);
+      break;
+    }
+
+    default: {
+      console.error('Worker: unknown message', e.data.command);
+      break;
+    }
+  }
+};
+
+/**
  * Extract embedding from the input text
  * @param model Embedding model
  * @param text Input text
  */
-export const getEmbedding = async (
+export const startExtractEmbedding = async (
   model: EmbeddingModel,
-  text: string,
+  sentences: string[],
   requestID: string,
   detail: string
 ) => {
   try {
     const extractor = await extractors[model];
-    const sentences = [text];
     const output = await extractor(sentences, {
       pooling: 'mean',
       normalize: true
     });
 
-    const embedding = Array.from<number>(output.data as Float32Array);
+    const embeddings: number[][] = [];
+    const flattenEmbedding: number[] = Array.from<number>(
+      output.data as Float32Array
+    );
+
+    // Un-flatten the embedding output
+    for (let i = 0; i < output.dims[0]; i++) {
+      const curRow = flattenEmbedding.slice(
+        i * output.dims[1],
+        (i + 1) * output.dims[1]
+      );
+      embeddings.push(curRow);
+    }
 
     // Send result to the main thread
     const message: EmbeddingWorkerMessage = {
@@ -67,8 +97,8 @@ export const getEmbedding = async (
         model,
         requestID,
         detail,
-        text,
-        embedding
+        sentences,
+        embeddings
       }
     };
     postMessage(message);
