@@ -11,6 +11,9 @@
 }
 
 .app-container {
-  width: 900px;
+  width: min(1000px, 100vw - 50px);
   height: 600px;
+  border-radius: 10px;
+  border: 1px solid var(--gray-400);
+  /* box-shadow: var(--shadow-border-light); */
 }

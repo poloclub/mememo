@@ -1,47 +1,24 @@
 import { LitElement, css, unsafeCSS, html, PropertyValues } from 'lit';
 import { customElement, property, state, query } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
-import { EmbeddingModel } from '../../workers/embedding';
 
-import type { EmbeddingWorkerMessage } from '../../workers/embedding';
-
-import componentCSS from './prompt-panel.css?inline';
-import EmbeddingWorkerInline from '../../workers/embedding?worker&inline';
+import componentCSS from './playground.css?inline';
 
 /**
- * Prompt panel element.
+ * Playground element.
  *
  */
-@customElement('mememo-prompt-panel')
-export class MememoPromptPanel extends LitElement {
+@customElement('mememo-playground')
+export class MememoPlayground extends LitElement {
   //==========================================================================||
   //                              Class Properties                            ||
   //==========================================================================||
-  embeddingWorker: Worker;
-
-  embeddingWorkerRequestCount = 0;
-
-  get embeddingWorkerRequestID() {
-    this.embeddingWorkerRequestCount++;
-    return `prompt-panel-${this.embeddingWorkerRequestCount}`;
-  }
 
   //==========================================================================||
   //                             Lifecycle Methods                            ||
   //==========================================================================||
   constructor() {
     super();
-    this.embeddingWorker = new EmbeddingWorkerInline();
-    this.embeddingWorker.addEventListener(
-      'message',
-      (e: MessageEvent<EmbeddingWorkerMessage>) => {
-        this.embeddingWorkerMessageHandler(e);
-      }
-    );
-  }
-
-  firstUpdated() {
-    this.getEmbedding();
   }
 
   /**
@@ -55,42 +32,9 @@ export class MememoPromptPanel extends LitElement {
   //==========================================================================||
   async initData() {}
 
-  getEmbedding() {
-    const message: EmbeddingWorkerMessage = {
-      command: 'startExtractEmbedding',
-      payload: {
-        detail: '',
-        requestID: this.embeddingWorkerRequestID,
-        model: EmbeddingModel.gteSmall,
-        sentences: ['Hello, how are you']
-      }
-    };
-    this.embeddingWorker.postMessage(message);
-  }
-
   //==========================================================================||
   //                              Event Handlers                              ||
   //==========================================================================||
-
-  embeddingWorkerMessageHandler(e: MessageEvent<EmbeddingWorkerMessage>) {
-    switch (e.data.command) {
-      case 'finishExtractEmbedding': {
-        const embeddings = e.data.payload.embeddings;
-        console.log(embeddings);
-        break;
-      }
-
-      case 'error': {
-        console.error('Worker error: ', e.data.payload.message);
-        break;
-      }
-
-      default: {
-        console.error('Worker: unknown message', e.data.command);
-        break;
-      }
-    }
-  }
 
   //==========================================================================||
   //                             Private Helpers                              ||
@@ -100,7 +44,48 @@ export class MememoPromptPanel extends LitElement {
   //                           Templates and Styles                           ||
   //==========================================================================||
   render() {
-    return html` <div class="prompt-panel">Prompt panel</div> `;
+    return html`
+      <div class="playground">
+        <div class="container container-input">Input</div>
+        <div class="container container-search">Search</div>
+        <div class="container container-text">Text</div>
+        <div class="container container-prompt">Prompt</div>
+        <div class="container container-model">Model</div>
+        <div class="container container-output">Output</div>
+
+        <div class="flow horizontal-flow input-text">
+          <div class="background">
+            <span class="line-loader hidden"></span>
+            <div class="start-rectangle"></div>
+            <div class="end-triangle"></div>
+          </div>
+        </div>
+
+        <div class="flow horizontal-flow text-prompt">
+          <div class="background">
+            <span class="line-loader hidden"></span>
+            <div class="start-rectangle"></div>
+            <div class="end-triangle"></div>
+          </div>
+        </div>
+
+        <div class="flow vertical-flow input-prompt">
+          <div class="background">
+            <span class="line-loader hidden"></span>
+            <div class="start-rectangle"></div>
+            <div class="end-triangle"></div>
+          </div>
+        </div>
+
+        <div class="flow vertical-flow prompt-output">
+          <div class="background">
+            <span class="line-loader hidden"></span>
+            <div class="start-rectangle"></div>
+            <div class="end-triangle"></div>
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   static styles = [
@@ -112,6 +97,6 @@ export class MememoPromptPanel extends LitElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    'mememo-prompt-panel': MememoPromptPanel;
+    'mememo-playground': MememoPlayground;
   }
 }

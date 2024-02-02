@@ -2,7 +2,7 @@ import { LitElement, css, unsafeCSS, html, PropertyValues } from 'lit';
 import { customElement, property, state, query } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 
-import '../prompt-panel/prompt-panel';
+import '../playground/playground';
 import componentCSS from './app.css?inline';
 
 /**
@@ -48,7 +48,7 @@ export class MememoRagPlayground extends LitElement {
     return html`
       <div class="page">
         <div class="app-container">
-          <mememo-prompt-panel></mememo-prompt-panel>
+          <mememo-playground></mememo-playground>
         </div>
       </div>
     `;
