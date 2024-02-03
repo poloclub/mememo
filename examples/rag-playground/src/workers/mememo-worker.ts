@@ -8,6 +8,12 @@ import {
   splitStreamTransform,
   parseJSONTransform
 } from '@xiaohk/utils';
+import Flexsearch from 'flexsearch';
+import { openDB, IDBPDatabase } from 'idb';
+
+//==========================================================================||
+//                            Types & Constants                             ||
+//==========================================================================||
 
 export type MememoWorkerMessage =
   | {
@@ -15,6 +21,7 @@ export type MememoWorkerMessage =
       payload: {
         /** NDJSON data url */
         url: string;
+        datasetName: string;
       };
     }
   | {
@@ -25,16 +32,40 @@ export type MememoWorkerMessage =
         points: DocumentRecord[];
         loadedPointCount: number;
       };
+    }
+  | {
+      command: 'startLexicalSearch';
+      payload: {
+        query: string;
+        requestID: number;
+        limit: number;
+      };
+    }
+  | {
+      command: 'finishLexicalSearch';
+      payload: {
+        requestID: number;
+        results: string[];
+      };
     };
 
 const DEV_MODE = import.meta.env.DEV;
 const POINT_THRESHOLD = 100;
 
+// Data loading
 let pendingDataPoints: DocumentRecord[] = [];
 let loadedPointCount = 0;
 let sentPointCount = 0;
-
 let lastDrawnPoints: DocumentRecord[] | null = null;
+
+// Indexes
+const flexIndex: Flexsearch.Index = new Flexsearch.Index() as Flexsearch.Index;
+let workerDatasetName = 'my-dataset';
+let documentDBPromise: Promise<IDBPDatabase<string>> | null = null;
+
+//==========================================================================||
+//                                Functions                                 ||
+//==========================================================================||
 
 /**
  * Handle message events from the main thread
@@ -46,9 +77,14 @@ self.onmessage = (e: MessageEvent<MememoWorkerMessage>) => {
     case 'startLoadData': {
       console.log('Worker: start streaming data');
       timeit('Stream data', true);
+      const { url, datasetName } = e.data.payload;
+      startLoadCompressedData(url, datasetName);
+      break;
+    }
 
-      const url = e.data.payload.url;
-      startLoadCompressedData(url);
+    case 'startLexicalSearch': {
+      const { query, limit, requestID } = e.data.payload;
+      searchPoint(query, limit, requestID);
       break;
     }
 
@@ -62,8 +98,18 @@ self.onmessage = (e: MessageEvent<MememoWorkerMessage>) => {
 /**
  * Start loading the text data
  * @param url URL to the zipped NDJSON file
+ * @param datasetName Name of the dataset
  */
-const startLoadCompressedData = (url: string) => {
+const startLoadCompressedData = (url: string, datasetName: string) => {
+  // Update the indexed db store reference
+  workerDatasetName = datasetName;
+
+  documentDBPromise = openDB<string>(`${workerDatasetName}-store`, 1, {
+    upgrade(db) {
+      db.createObjectStore(workerDatasetName);
+    }
+  });
+
   fetch(url).then(async response => {
     if (!response.ok) {
       console.error('Failed to load data', response);
@@ -87,7 +133,7 @@ const startLoadCompressedData = (url: string) => {
         pointStreamFinished();
         break;
       } else {
-        processPointStream(point);
+        await processPointStream(point);
       }
     }
   });
@@ -97,14 +143,22 @@ const startLoadCompressedData = (url: string) => {
  * Process one data point
  * @param point Loaded data point
  */
-const processPointStream = (point: DocumentRecordStreamData) => {
-  const promptPoint: DocumentRecord = {
+const processPointStream = async (point: DocumentRecordStreamData) => {
+  if (documentDBPromise === null) {
+    throw Error('documentDB is null');
+  }
+  const documentDB = await documentDBPromise;
+
+  const documentPoint: DocumentRecord = {
     text: point[0],
     embedding: point[1],
     id: loadedPointCount
   };
 
-  pendingDataPoints.push(promptPoint);
+  // Index the point
+  pendingDataPoints.push(documentPoint);
+  flexIndex.add(documentPoint.id, documentPoint.text);
+  await documentDB.put(workerDatasetName, documentPoint.text, documentPoint.id);
   loadedPointCount += 1;
 
   // Notify the main thread if we have load enough data
@@ -146,4 +200,35 @@ const pointStreamFinished = () => {
   sentPointCount += pendingDataPoints.length;
   lastDrawnPoints = pendingDataPoints.slice();
   pendingDataPoints = [];
+};
+
+/**
+ * Start a lexical query
+ * @param query Query string
+ * @param limit Number of query items
+ */
+const searchPoint = async (query: string, limit: number, requestID: string) => {
+  if (documentDBPromise === null) {
+    throw Error('documentDB is null');
+  }
+  const documentDB = await documentDBPromise;
+  const resultIndexes = flexIndex.search(query, {
+    limit
+  }) as unknown as number[];
+
+  // Look up the indexes in indexedDB
+  const results = [];
+  for (const i of resultIndexes) {
+    const result = (await documentDB.get(workerDatasetName, i)) as string;
+    results.push(result);
+  }
+
+  const message: MememoWorkerMessage = {
+    command: 'finishLexicalSearch',
+    payload: {
+      results,
+      requestID
+    }
+  };
+  postMessage(message);
 };

@@ -22,6 +22,11 @@ export class Mememo<FTName | pascalcase> extends LitElement {
   }
 
   /**
+   * This method is called when the DOM is added for the first time
+   */
+  firstUpdated() {}
+
+  /**
    * This method is called before new DOM is updated and rendered
    * @param changedProperties Property that has been changed
    */

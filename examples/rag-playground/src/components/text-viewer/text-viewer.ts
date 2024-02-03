@@ -31,7 +31,14 @@ export class MememoTextViewer extends LitElement {
   @state()
   showSearchBarCancelButton = false;
 
-  loaderWorker: Worker;
+  mememoWorker: Worker;
+  mememoFinishedLoading: Promise<void>;
+  markMememoFinishedLoading = () => {};
+
+  lexicalSearchRequestCount = 0;
+  get lexicalSearchRequestID() {
+    return this.lexicalSearchRequestCount++;
+  }
 
   //==========================================================================||
   //                             Lifecycle Methods                            ||
@@ -39,20 +46,32 @@ export class MememoTextViewer extends LitElement {
   constructor() {
     super();
 
-    this.loaderWorker = new MememoWorkerInline();
-    this.loaderWorker.addEventListener(
+    this.mememoFinishedLoading = new Promise<void>(resolve => {
+      this.markMememoFinishedLoading = resolve;
+    });
+
+    this.mememoWorker = new MememoWorkerInline();
+    this.mememoWorker.addEventListener(
       'message',
       (e: MessageEvent<MememoWorkerMessage>) =>
         this.loaderWorkerMessageHandler(e)
     );
 
-    const message: MememoWorkerMessage = {
-      command: 'startLoadData',
-      payload: {
-        url: '/data/ml-arxiv-papers-1000.ndjson.gzip'
-      }
-    };
-    this.loaderWorker.postMessage(message);
+    this.initData();
+  }
+
+  firstUpdated() {
+    this.mememoFinishedLoading.then(() => {
+      const message: MememoWorkerMessage = {
+        command: 'startLexicalSearch',
+        payload: {
+          query: 'human',
+          limit: 10,
+          requestID: this.lexicalSearchRequestID
+        }
+      };
+      this.mememoWorker.postMessage(message);
+    });
   }
 
   /**
@@ -64,7 +83,16 @@ export class MememoTextViewer extends LitElement {
   //==========================================================================||
   //                              Custom Methods                              ||
   //==========================================================================||
-  async initData() {}
+  initData() {
+    const message: MememoWorkerMessage = {
+      command: 'startLoadData',
+      payload: {
+        url: '/data/ml-arxiv-papers-1000.ndjson.gzip',
+        datasetName: 'ml-arxiv-papers'
+      }
+    };
+    this.mememoWorker.postMessage(message);
+  }
 
   //==========================================================================||
   //                              Event Handlers                              ||
@@ -76,6 +104,14 @@ export class MememoTextViewer extends LitElement {
   loaderWorkerMessageHandler(e: MessageEvent<MememoWorkerMessage>) {
     switch (e.data.command) {
       case 'transferLoadData': {
+        // Mark the loading has completed
+        if (e.data.payload.isLastBatch) {
+          this.markMememoFinishedLoading();
+        }
+        break;
+      }
+
+      case 'finishLexicalSearch': {
         console.log(e.data.payload);
         break;
       }
