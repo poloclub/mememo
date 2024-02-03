@@ -3,6 +3,7 @@ import { customElement, property, state, query } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 
 import '../query-box/query-box';
+import '../text-viewer/text-viewer';
 
 import componentCSS from './playground.css?inline';
 
@@ -56,12 +57,14 @@ export class MememoPlayground extends LitElement {
           <div class="search-box">MeMemo Search</div>
         </div>
 
-        <div class="container container-text">Text</div>
+        <div class="container container-text">
+          <mememo-text-viewer></mememo-text-viewer>
+        </div>
 
         <div class="container container-prompt">Prompt</div>
 
         <div class="container container-model">
-          <div class="search-box">GPT 3.5</div>
+          <div class="model-box">GPT 3.5</div>
         </div>
 
         <div class="container container-output">Output</div>
