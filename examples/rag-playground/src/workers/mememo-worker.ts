@@ -48,7 +48,7 @@ self.onmessage = (e: MessageEvent<MememoWorkerMessage>) => {
       timeit('Stream data', true);
 
       const url = e.data.payload.url;
-      startLoadData(url);
+      startLoadCompressedData(url);
       break;
     }
 
@@ -61,9 +61,9 @@ self.onmessage = (e: MessageEvent<MememoWorkerMessage>) => {
 
 /**
  * Start loading the text data
- * @param url URL to the NDJSON file
+ * @param url URL to the zipped NDJSON file
  */
-const startLoadData = (url: string) => {
+const startLoadCompressedData = (url: string) => {
   fetch(url).then(async response => {
     if (!response.ok) {
       console.error('Failed to load data', response);
@@ -71,6 +71,7 @@ const startLoadData = (url: string) => {
     }
 
     const reader = response.body
+      ?.pipeThrough(new DecompressionStream('gzip'))
       ?.pipeThrough(new TextDecoderStream())
       ?.pipeThrough(splitStreamTransform('\n'))
       ?.pipeThrough(parseJSONTransform())
@@ -87,13 +88,6 @@ const startLoadData = (url: string) => {
         break;
       } else {
         processPointStream(point);
-
-        // // TODO: Remove me in prod
-        // if (loadedPointCount >= 305000) {
-        //   pointStreamFinished();
-        //   timeit('Stream data', DEBUG);
-        //   break;
-        // }
       }
     }
   });

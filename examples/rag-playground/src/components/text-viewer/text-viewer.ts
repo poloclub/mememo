@@ -49,7 +49,7 @@ export class MememoTextViewer extends LitElement {
     const message: MememoWorkerMessage = {
       command: 'startLoadData',
       payload: {
-        url: '/data/ml-arxiv-papers-1000.ndjson'
+        url: '/data/ml-arxiv-papers-1000.ndjson.gzip'
       }
     };
     this.loaderWorker.postMessage(message);
