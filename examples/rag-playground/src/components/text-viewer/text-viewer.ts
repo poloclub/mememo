@@ -2,12 +2,15 @@ import { LitElement, css, unsafeCSS, html, PropertyValues } from 'lit';
 import { customElement, property, state, query } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 
+import type { MememoWorkerMessage } from '../../workers/mememo-worker';
+
 // Assets
 import componentCSS from './text-viewer.css?inline';
 import searchIcon from '../../images/icon-search.svg?raw';
 import crossIcon from '../../images/icon-cross-thick.svg?raw';
 import crossSmallIcon from '../../images/icon-cross.svg?raw';
 
+import MememoWorkerInline from '../../workers/mememo-worker?worker&inline';
 import paperDataJSON from '../../../notebooks/ml-arxiv-papers-1000.json';
 const paperData = paperDataJSON as string[];
 
@@ -28,11 +31,28 @@ export class MememoTextViewer extends LitElement {
   @state()
   showSearchBarCancelButton = false;
 
+  loaderWorker: Worker;
+
   //==========================================================================||
   //                             Lifecycle Methods                            ||
   //==========================================================================||
   constructor() {
     super();
+
+    this.loaderWorker = new MememoWorkerInline();
+    this.loaderWorker.addEventListener(
+      'message',
+      (e: MessageEvent<MememoWorkerMessage>) =>
+        this.loaderWorkerMessageHandler(e)
+    );
+
+    const message: MememoWorkerMessage = {
+      command: 'startLoadData',
+      payload: {
+        url: '/data/ml-arxiv-papers-1000.ndjson'
+      }
+    };
+    this.loaderWorker.postMessage(message);
   }
 
   /**
@@ -52,6 +72,19 @@ export class MememoTextViewer extends LitElement {
   searchBarEntered(e: InputEvent) {}
 
   showSearchBarCancelButtonClicked() {}
+
+  loaderWorkerMessageHandler(e: MessageEvent<MememoWorkerMessage>) {
+    switch (e.data.command) {
+      case 'transferLoadData': {
+        console.log(e.data.payload);
+        break;
+      }
+
+      default: {
+        console.error(`Unknown command ${e.data.command}`);
+      }
+    }
+  }
 
   //==========================================================================||
   //                             Private Helpers                              ||
