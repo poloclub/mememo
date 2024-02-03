@@ -1,0 +1,41 @@
+.query-box {
+  width: 100%;
+  height: max-content;
+
+  display: flex;
+  box-sizing: border-box;
+  flex-direction: column;
+  align-items: center;
+
+  padding: var(--box-padding-v) var(--box-padding-h);
+  gap: 5px;
+}
+
+textarea {
+  border: 1px solid var(--gray-300);
+  border-radius: 5px;
+  padding: 5px 5px;
+  width: 100%;
+  height: auto;
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: var(--font-d2);
+  resize: vertical;
+  max-height: 300px;
+
+  &:focus {
+    outline: 2px solid var(--focus-border-color);
+    border: 1px solid var(--focus-border-color);
+  }
+
+  &::placeholder {
+    color: var(--gray-600);
+  }
+}
+
+.header {
+  font-weight: 800;
+  font-size: var(--font-u1);
+  color: var(--gray-600);
+  line-height: 1;
+}

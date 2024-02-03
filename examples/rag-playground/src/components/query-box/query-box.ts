@@ -2,16 +2,14 @@ import { LitElement, css, unsafeCSS, html, PropertyValues } from 'lit';
 import { customElement, property, state, query } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 
-import '../query-box/query-box';
-
-import componentCSS from './playground.css?inline';
+import componentCSS from './query-box.css?inline';
 
 /**
- * Playground element.
+ * Query box element.
  *
  */
-@customElement('mememo-playground')
-export class MememoPlayground extends LitElement {
+@customElement('mememo-query-box')
+export class MememoQueryBox extends LitElement {
   //==========================================================================||
   //                              Class Properties                            ||
   //==========================================================================||
@@ -47,56 +45,9 @@ export class MememoPlayground extends LitElement {
   //==========================================================================||
   render() {
     return html`
-      <div class="playground">
-        <div class="container container-input">
-          <mememo-query-box></mememo-query-box>
-        </div>
-
-        <div class="container container-search">
-          <div class="search-box">MeMemo Search</div>
-        </div>
-
-        <div class="container container-text">Text</div>
-
-        <div class="container container-prompt">Prompt</div>
-
-        <div class="container container-model">
-          <div class="search-box">GPT 3.5</div>
-        </div>
-
-        <div class="container container-output">Output</div>
-
-        <div class="flow horizontal-flow input-text">
-          <div class="background">
-            <span class="line-loader hidden"></span>
-            <div class="start-rectangle"></div>
-            <div class="end-triangle"></div>
-          </div>
-        </div>
-
-        <div class="flow horizontal-flow text-prompt">
-          <div class="background">
-            <span class="line-loader hidden"></span>
-            <div class="start-rectangle"></div>
-            <div class="end-triangle"></div>
-          </div>
-        </div>
-
-        <div class="flow vertical-flow input-prompt">
-          <div class="background">
-            <span class="line-loader hidden"></span>
-            <div class="start-rectangle"></div>
-            <div class="end-triangle"></div>
-          </div>
-        </div>
-
-        <div class="flow vertical-flow prompt-output">
-          <div class="background">
-            <span class="line-loader hidden"></span>
-            <div class="start-rectangle"></div>
-            <div class="end-triangle"></div>
-          </div>
-        </div>
+      <div class="query-box">
+        <div class="header">User Query</div>
+        <textarea rows="5"></textarea>
       </div>
     `;
   }
@@ -110,6 +61,6 @@ export class MememoPlayground extends LitElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    'mememo-playground': MememoPlayground;
+    'mememo-query-box': MememoQueryBox;
   }
 }

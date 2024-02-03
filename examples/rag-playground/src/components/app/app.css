@@ -12,7 +12,7 @@
 
 .app-container {
   width: min(1000px, 100vw - 50px);
-  height: 600px;
+  height: min(650px, 100vw - 50px);
   border-radius: 10px;
   border: 1px solid var(--gray-400);
   /* box-shadow: var(--shadow-border-light); */

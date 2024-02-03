@@ -7,19 +7,22 @@
   position: relative;
   display: grid;
 
-  grid-template-rows: auto 40px auto 30px min-content 40px auto;
+  grid-template-rows: max-content 40px auto 15px min-content 30px auto;
 
   grid-template-columns:
-    minmax(min-content, 300px)
+    minmax(200px, 1fr)
     50px
     minmax(min-content, 100px)
     60px
-    minmax(300px, 1fr);
+    minmax(300px, 400px);
 
   --arrow-color: var(--gray-300);
   --border-radius: 5px;
   --block-shadow: 0px 0px 2px hsla(0, 0%, 0%, 0.1),
     0px 0px 6px hsla(0, 0%, 0%, 0.05);
+  --focus-border-color: var(--blue-200);
+  --box-padding-v: 10px;
+  --box-padding-h: 10px;
 }
 
 .container {
@@ -30,15 +33,21 @@
   position: relative;
   z-index: 2;
 
-  background-color: white;
   box-sizing: border-box;
 
   &.container-input {
     grid-row: 1 / 2;
     grid-column: 1 / 2;
+
+    background-color: white;
     border-radius: var(--border-radius);
     box-shadow: var(--block-shadow);
     border: 1px solid hsla(0deg, 0%, 0%, 0.08);
+
+    & mememo-query-box {
+      width: 100%;
+      height: 100%;
+    }
   }
 
   &.container-search {
@@ -51,6 +60,8 @@
     grid-column: 5 / 6;
     width: 100%;
     height: 100%;
+
+    background-color: white;
     border-radius: var(--border-radius);
     box-shadow: var(--block-shadow);
     border: 1px solid hsla(0deg, 0%, 0%, 0.08);
@@ -59,6 +70,8 @@
   &.container-prompt {
     grid-row: 3 / 4;
     grid-column: 1 / 4;
+
+    background-color: white;
     border-radius: var(--border-radius);
     box-shadow: var(--block-shadow);
     border: 1px solid hsla(0deg, 0%, 0%, 0.08);
@@ -72,6 +85,8 @@
   &.container-output {
     grid-row: 7 / 8;
     grid-column: 1 / 4;
+
+    background-color: white;
     border-radius: var(--border-radius);
     box-shadow: var(--block-shadow);
     border: 1px solid hsla(0deg, 0%, 0%, 0.08);
@@ -281,4 +296,16 @@
       border-top: 20px solid var(--arrow-color);
     }
   }
+}
+
+.search-box {
+  border-radius: var(--border-radius);
+  box-shadow: var(--block-shadow);
+  border: 1px solid hsla(0deg, 0%, 0%, 0.08);
+  background-color: white;
+  padding: 5px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
