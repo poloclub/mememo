@@ -5,9 +5,10 @@
 
 import { randomLcg, randomUniform } from 'd3-random';
 import { MinHeap, MaxHeap, IGetCompareValue } from '@datastructures-js/heap';
-import { openDB, IDBPDatabase } from 'idb';
+import Dexie from 'dexie';
+import type { Table, PromiseExtended, IndexableType } from 'dexie';
 
-export type IDBValidKey = number | string | Date | BufferSource | IDBValidKey[];
+export type IDBValidKey = number | string | Date | BufferSource;
 type BuiltInDistanceFunction = 'cosine' | 'cosine-normalized';
 
 interface SearchNodeCandidate<T extends IDBValidKey> {
@@ -100,29 +101,20 @@ class Node<T extends IDBValidKey> {
  */
 class Nodes<T extends IDBValidKey> {
   nodesMap: Map<T, Node<T>>;
-  indexedDBStoreName = '';
-  dbPromise: Promise<IDBPDatabase<string>> | null;
+  dbPromise: PromiseExtended<Table<Node<T>, IndexableType>> | null;
 
-  constructor(indexedDBStoreName?: string) {
+  constructor(useIndexedDB = false) {
     this.nodesMap = new Map<T, Node<T>>();
     this.dbPromise = null;
 
-    if (indexedDBStoreName !== undefined) {
-      this.indexedDBStoreName = indexedDBStoreName;
-
+    if (useIndexedDB) {
       // Create a new store
-      this.dbPromise = openDB<string>('mememo-index-store', 1, {
-        upgrade(db) {
-          db.createObjectStore(indexedDBStoreName);
-        }
-      }).then(async db => {
-        // Clear the store from previous sessions
-        const tx = db.transaction(indexedDBStoreName, 'readwrite');
-        const store = tx.objectStore(indexedDBStoreName);
-        await store.clear();
-        await tx.done;
-        return db;
+      const myDexie = new Dexie('mememo-index-store');
+      myDexie.version(1).stores({
+        mememo: 'key'
       });
+      const db = myDexie.table<Node<T>>('mememo');
+      this.dbPromise = db.clear().then(() => db);
     }
   }
 
@@ -131,8 +123,7 @@ class Nodes<T extends IDBValidKey> {
       return this.nodesMap.size;
     } else {
       const db = await this.dbPromise;
-      const keys = await db.getAllKeys(this.indexedDBStoreName);
-      return keys.length;
+      return await db.count();
     }
   }
 
@@ -141,7 +132,7 @@ class Nodes<T extends IDBValidKey> {
       return this.nodesMap.has(key);
     } else {
       const db = await this.dbPromise;
-      const result = await db.getKey(this.indexedDBStoreName, key);
+      const result = await db.get(key);
       return result !== undefined;
     }
   }
@@ -151,9 +142,7 @@ class Nodes<T extends IDBValidKey> {
       return this.nodesMap.get(key);
     } else {
       const db = await this.dbPromise;
-      const result = await (db.get(this.indexedDBStoreName, key) as Promise<
-        Node<T> | undefined
-      >);
+      const result = await db.get(key);
       return result;
     }
   }
@@ -163,7 +152,28 @@ class Nodes<T extends IDBValidKey> {
       this.nodesMap.set(key, value);
     } else {
       const db = await this.dbPromise;
-      await db.put(this.indexedDBStoreName, value, key);
+      await db.put(value, key);
+    }
+  }
+
+  async keys() {
+    if (this.dbPromise === null) {
+      return [...this.nodesMap.keys()];
+    } else {
+      const db = await this.dbPromise;
+      const results = (await db.toCollection().primaryKeys()) as T[];
+      return results;
+    }
+  }
+
+  async bulkSet(keys: T[], values: Node<T>[]) {
+    if (this.dbPromise === null) {
+      for (const [i, key] of keys.entries()) {
+        this.nodesMap.set(key, values[i]);
+      }
+    } else {
+      const db = await this.dbPromise;
+      await db.bulkPut(values);
     }
   }
 
@@ -172,7 +182,7 @@ class Nodes<T extends IDBValidKey> {
       this.nodesMap = new Map<T, Node<T>>();
     } else {
       const db = await this.dbPromise;
-      await db.clear(this.indexedDBStoreName);
+      await db.clear();
     }
   }
 }
@@ -275,11 +285,86 @@ export class HNSW<T extends IDBValidKey = string> {
     if (useIndexedDB === undefined || useIndexedDB === false) {
       this.nodes = new Nodes();
     } else {
-      this.nodes = new Nodes('mememo-store');
+      this.nodes = new Nodes(true);
     }
 
     // Data structures
     this.graphLayers = [];
+  }
+
+  /**
+   * Insert a new element to the index.
+   * @param key Key of the new element.
+   * @param value The embedding of the new element to insert.
+   * @param maxLevel The max layer to insert this element. You don't need to set
+   * this value in most cases. We add this parameter for testing purpose.
+   */
+  async insert(key: T, value: number[], maxLevel?: number | undefined) {
+    // If the key already exists, throw an error
+    if (await this.nodes.has(key)) {
+      const nodeInfo = await this._getNodeInfo(key);
+
+      if (nodeInfo.isDeleted) {
+        // The node was flagged as deleted, so we update it using the new value
+        nodeInfo.isDeleted = false;
+        await this.nodes.set(key, nodeInfo);
+        await this.update(key, value);
+        return;
+      }
+
+      throw Error(
+        `There is already a node with key ${JSON.stringify(key)} in the` +
+          'index. Use update() to update this node.'
+      );
+    }
+
+    // Add this node to the node index first
+    await this.nodes.set(key, new Node(key, value));
+
+    // Insert the node to the graphs
+    await this._insertToGraph(key, value, maxLevel);
+  }
+
+  /**
+   * Insert a new element to the index.
+   * @param key Key of the new element.
+   * @param value The embedding of the new element to insert.
+   * @param maxLevel The max layer to insert this element. You don't need to set
+   * this value in most cases. We add this parameter for testing purpose.
+   */
+  async bulkInsert(keys: T[], values: number[][], maxLevels?: number[]) {
+    const existingKeys = await this.nodes.keys();
+
+    // TODO: this case does not consider deleted nodes
+    for (const key of keys) {
+      if (existingKeys.includes(key)) {
+        throw Error(
+          `There is already a node with key ${JSON.stringify(key)} in the` +
+            'index. Use update() to update this node.'
+        );
+      }
+    }
+
+    // Bulk add nodes to the node index first
+    const newNodes: Node<T>[] = [];
+    for (const [i, key] of keys.entries()) {
+      newNodes.push(new Node(key, values[i]));
+    }
+
+    console.time('bulkSet');
+    await this.nodes.bulkSet(keys, newNodes);
+    console.timeEnd('bulkSet');
+
+    console.time('graph insert');
+    // Insert the nodes to the graphs
+    for (const [i, key] of keys.entries()) {
+      if (maxLevels === undefined) {
+        await this._insertToGraph(key, values[i]);
+      } else {
+        await this._insertToGraph(key, values[i], maxLevels[i]);
+      }
+    }
+    console.timeEnd('graph insert');
   }
 
   /**
@@ -391,39 +476,6 @@ export class HNSW<T extends IDBValidKey = string> {
       // Set entry point as the last added node
       this.entryPointKey = key;
     }
-  }
-
-  /**
-   * Insert a new element to the index.
-   * @param key Key of the new element.
-   * @param value The embedding of the new element to insert.
-   * @param maxLevel The max layer to insert this element. You don't need to set
-   * this value in most cases. We add this parameter for testing purpose.
-   */
-  async insert(key: T, value: number[], maxLevel?: number | undefined) {
-    // If the key already exists, throw an error
-    if (await this.nodes.has(key)) {
-      const nodeInfo = await this._getNodeInfo(key);
-
-      if (nodeInfo.isDeleted) {
-        // The node was flagged as deleted, so we update it using the new value
-        nodeInfo.isDeleted = false;
-        await this.nodes.set(key, nodeInfo);
-        await this.update(key, value);
-        return;
-      }
-
-      throw Error(
-        `There is already a node with key ${JSON.stringify(key)} in the` +
-          'index. Use update() to update this node.'
-      );
-    }
-
-    // Add this node to the node index first
-    await this.nodes.set(key, new Node(key, value));
-
-    // Insert the node to the graphs
-    await this._insertToGraph(key, value, maxLevel);
   }
 
   /**
