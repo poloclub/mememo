@@ -14,6 +14,7 @@ import crossSmallIcon from '../../images/icon-cross.svg?raw';
 
 const MAX_DOCUMENTS_IN_MEMORY = 1000;
 const DOCUMENT_INCREMENT = 100;
+const LEXICAL_SEARCH_LIMIT = 2000;
 const numberFormatter = d3.format(',');
 
 /**
@@ -37,7 +38,10 @@ export class MememoTextViewer extends LitElement {
   clickedItemIndexes: number[] = [];
 
   documents: string[] = [];
-  curDocumentCap = 100;
+
+  /** Current document source (total documents or filtered documents) */
+  curDocuments: string[] = this.documents;
+  shownDocumentCap = 100;
 
   @state()
   documentCount = 0;
@@ -53,6 +57,9 @@ export class MememoTextViewer extends LitElement {
 
   @state()
   showSearchBarCancelButton = false;
+
+  isSearching = false;
+  pendingQuery: string | null = null;
 
   mememoWorker: Worker;
   mememoFinishedLoading: Promise<void>;
@@ -85,18 +92,6 @@ export class MememoTextViewer extends LitElement {
   }
 
   firstUpdated() {
-    this.mememoFinishedLoading.then(() => {
-      const message: MememoWorkerMessage = {
-        command: 'startLexicalSearch',
-        payload: {
-          query: 'human',
-          limit: 10,
-          requestID: this.lexicalSearchRequestID
-        }
-      };
-      this.mememoWorker.postMessage(message);
-    });
-
     this.initData();
   }
 
@@ -126,9 +121,46 @@ export class MememoTextViewer extends LitElement {
   //==========================================================================||
   //                              Event Handlers                              ||
   //==========================================================================||
-  searchBarEntered(e: InputEvent) {}
+  searchBarEntered(e: InputEvent) {
+    const inputElement = e.currentTarget as HTMLInputElement;
+    const query = inputElement.value;
 
-  showSearchBarCancelButtonClicked() {}
+    if (query.length === 0) {
+      this.showSearchBarCancelButton = false;
+      this.curDocuments = this.documents;
+      this.shownDocuments = this.documents.slice(0, this.shownDocumentCap);
+      this.isFiltered = false;
+    } else {
+      // Show the cancel button
+      this.showSearchBarCancelButton = true;
+
+      // Start lexical search
+      if (this.isSearching) {
+        this.pendingQuery = query;
+      } else {
+        const message: MememoWorkerMessage = {
+          command: 'startLexicalSearch',
+          payload: {
+            query: query,
+            limit: LEXICAL_SEARCH_LIMIT,
+            requestID: this.lexicalSearchRequestID
+          }
+        };
+        this.mememoWorker.postMessage(message);
+      }
+    }
+  }
+
+  showSearchBarCancelButtonClicked() {
+    const inputElement = this.shadowRoot!.querySelector(
+      '#search-bar-input'
+    ) as HTMLInputElement;
+    inputElement.value = '';
+    this.showSearchBarCancelButton = false;
+    this.curDocuments = this.documents;
+    this.shownDocuments = this.documents.slice(0, this.shownDocumentCap);
+    this.isFiltered = false;
+  }
 
   async showMoreButtonClicked() {
     if (this.shadowRoot === null) {
@@ -142,8 +174,8 @@ export class MememoTextViewer extends LitElement {
     const scrollTop = contentList.scrollTop;
 
     // Update the list
-    const newSize = this.shownDocuments.length + DOCUMENT_INCREMENT;
-    this.shownDocuments = this.documents.slice(0, newSize);
+    this.shownDocumentCap += DOCUMENT_INCREMENT;
+    this.shownDocuments = this.curDocuments.slice(0, this.shownDocumentCap);
 
     await this.updateComplete;
     contentList.scrollTop = scrollTop;
@@ -163,7 +195,7 @@ export class MememoTextViewer extends LitElement {
         }
 
         // Add data to the shown list
-        if (this.shownDocuments.length < this.curDocumentCap) {
+        if (this.shownDocuments.length < this.shownDocumentCap) {
           this.shownDocuments = [...this.shownDocuments, ...documents];
         }
 
@@ -176,7 +208,27 @@ export class MememoTextViewer extends LitElement {
       }
 
       case 'finishLexicalSearch': {
-        console.log(e.data.payload);
+        this.isSearching = false;
+
+        // Update the shown documents
+        this.isFiltered = true;
+        this.curDocuments = e.data.payload.results;
+        this.shownDocuments = this.curDocuments.slice(0, this.shownDocumentCap);
+
+        // Start a new search if there is a pending query
+        if (this.pendingQuery !== null) {
+          const message: MememoWorkerMessage = {
+            command: 'startLexicalSearch',
+            payload: {
+              query: this.pendingQuery,
+              limit: LEXICAL_SEARCH_LIMIT,
+              requestID: this.lexicalSearchRequestID
+            }
+          };
+          this.mememoWorker.postMessage(message);
+          this.pendingQuery = null;
+        }
+
         break;
       }
 
@@ -234,9 +286,15 @@ export class MememoTextViewer extends LitElement {
     </div>`;
 
     if (this.isFiltered) {
-      countLabel = html` <div class="count-label">
-        ${numberFormatter(this.shownDocuments.length)} search results
-      </div>`;
+      if (this.curDocuments.length < LEXICAL_SEARCH_LIMIT) {
+        countLabel = html` <div class="count-label">
+          ${numberFormatter(this.curDocuments.length)} search results
+        </div>`;
+      } else {
+        countLabel = html` <div class="count-label">
+          ${numberFormatter(this.curDocuments.length)}+ search results
+        </div>`;
+      }
     }
 
     return html`
@@ -284,7 +342,8 @@ export class MememoTextViewer extends LitElement {
             <div
               class="item add-more-button"
               @click=${() => this.showMoreButtonClicked()}
-              ?is-hidden=${this.documents.length === this.shownDocuments.length}
+              ?is-hidden=${this.curDocuments.length ===
+              this.shownDocuments.length}
             >
               Show More
             </div>

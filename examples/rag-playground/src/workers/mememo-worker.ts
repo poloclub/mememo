@@ -55,11 +55,12 @@ const POINT_THRESHOLD = 100;
 // Data loading
 let pendingDataPoints: DocumentRecord[] = [];
 let loadedPointCount = 0;
-let sentPointCount = 0;
 let lastDrawnPoints: DocumentRecord[] | null = null;
 
 // Indexes
-const flexIndex: Flexsearch.Index = new Flexsearch.Index() as Flexsearch.Index;
+const flexIndex: Flexsearch.Index = new Flexsearch.Index({
+  tokenize: 'forward'
+}) as Flexsearch.Index;
 let workerDatasetName = 'my-dataset';
 let documentDBPromise: Promise<IDBPDatabase<string>> | null = null;
 
@@ -179,7 +180,6 @@ const processPointStream = async (point: DocumentRecordStreamData) => {
 
     postMessage(result);
 
-    sentPointCount += pendingDataPoints.length;
     lastDrawnPoints = pendingDataPoints.slice();
     pendingDataPoints = [];
   }
@@ -202,7 +202,6 @@ const pointStreamFinished = () => {
   };
   postMessage(result);
 
-  sentPointCount += pendingDataPoints.length;
   lastDrawnPoints = pendingDataPoints.slice();
   pendingDataPoints = [];
 };

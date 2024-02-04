@@ -102,7 +102,6 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    cursor: pointer;
     color: var(--gray-600);
     position: relative;
 
