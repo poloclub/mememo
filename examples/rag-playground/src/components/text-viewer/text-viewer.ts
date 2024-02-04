@@ -97,21 +97,14 @@ export class MememoTextViewer extends LitElement {
       this.mememoWorker.postMessage(message);
     });
 
-    console.log(this.dataURL);
+    this.initData();
   }
 
   /**
    * This method is called before new DOM is updated and rendered
    * @param changedProperties Property that has been changed
    */
-  willUpdate(changedProperties: PropertyValues<this>) {
-    if (
-      changedProperties.has('dataURL') &&
-      changedProperties.get('dataURL') === undefined
-    ) {
-      this.initData();
-    }
-  }
+  willUpdate(changedProperties: PropertyValues<this>) {}
 
   //==========================================================================||
   //                              Custom Methods                              ||
@@ -136,6 +129,25 @@ export class MememoTextViewer extends LitElement {
   searchBarEntered(e: InputEvent) {}
 
   showSearchBarCancelButtonClicked() {}
+
+  async showMoreButtonClicked() {
+    if (this.shadowRoot === null) {
+      throw Error('shadowRoot is null');
+    }
+
+    // Need to manually track the scroll position and set it after updating the list
+    const contentList = this.shadowRoot.querySelector(
+      '.content-list'
+    ) as HTMLElement;
+    const scrollTop = contentList.scrollTop;
+
+    // Update the list
+    const newSize = this.shownDocuments.length + DOCUMENT_INCREMENT;
+    this.shownDocuments = this.documents.slice(0, newSize);
+
+    await this.updateComplete;
+    contentList.scrollTop = scrollTop;
+  }
 
   loaderWorkerMessageHandler(e: MessageEvent<MememoWorkerMessage>) {
     switch (e.data.command) {
@@ -271,6 +283,7 @@ export class MememoTextViewer extends LitElement {
             ${countLabel} ${items}
             <div
               class="item add-more-button"
+              @click=${() => this.showMoreButtonClicked()}
               ?is-hidden=${this.documents.length === this.shownDocuments.length}
             >
               Show More

@@ -186,7 +186,7 @@
 
   overflow-y: auto;
   overflow-x: hidden;
-  scroll-behavior: smooth;
+  /* scroll-behavior: smooth; */
   overscroll-behavior: none;
 
   .item {

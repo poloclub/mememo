@@ -174,7 +174,7 @@ const processPointStream = async (point: DocumentRecordStreamData) => {
     };
 
     await new Promise<void>(resolve => {
-      setTimeout(resolve, 500);
+      setTimeout(resolve, 100);
     });
 
     postMessage(result);
