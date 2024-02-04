@@ -44,6 +44,7 @@ export type MememoWorkerMessage =
   | {
       command: 'finishLexicalSearch';
       payload: {
+        query: string;
         requestID: number;
         results: string[];
       };
@@ -230,6 +231,7 @@ const searchPoint = async (query: string, limit: number, requestID: number) => {
   const message: MememoWorkerMessage = {
     command: 'finishLexicalSearch',
     payload: {
+      query,
       results,
       requestID
     }

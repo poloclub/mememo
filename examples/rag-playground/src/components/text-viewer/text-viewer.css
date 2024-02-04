@@ -211,10 +211,10 @@
       background-color: color-mix(in lab, var(--blue-100), white 70%);
     }
 
-    :global(em) {
-      color: var(--purple-500);
+    & em {
+      color: var(--blue-500);
       font-style: normal;
-      font-weight: 600;
+      font-weight: 700;
     }
   }
 

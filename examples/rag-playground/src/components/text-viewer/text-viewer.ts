@@ -1,6 +1,7 @@
 import { LitElement, css, unsafeCSS, html, PropertyValues } from 'lit';
 import { customElement, property, state, query } from 'lit/decorators.js';
-import { unsafeHTML } from 'lit/directives/unsafe-html.js';
+import { unsafeHTML, UnsafeHTMLDirective } from 'lit/directives/unsafe-html.js';
+import { DirectiveResult } from 'lit/directive.js';
 import d3 from '../../utils/d3-import';
 
 import type { MememoWorkerMessage } from '../../workers/mememo-worker';
@@ -60,6 +61,7 @@ export class MememoTextViewer extends LitElement {
 
   isSearching = false;
   pendingQuery: string | null = null;
+  curQuery: string | null = null;
 
   mememoWorker: Worker;
   mememoFinishedLoading: Promise<void>;
@@ -130,6 +132,7 @@ export class MememoTextViewer extends LitElement {
       this.curDocuments = this.documents;
       this.shownDocuments = this.documents.slice(0, this.shownDocumentCap);
       this.isFiltered = false;
+      this.curQuery = null;
     } else {
       // Show the cancel button
       this.showSearchBarCancelButton = true;
@@ -160,6 +163,7 @@ export class MememoTextViewer extends LitElement {
     this.curDocuments = this.documents;
     this.shownDocuments = this.documents.slice(0, this.shownDocumentCap);
     this.isFiltered = false;
+    this.curQuery = null;
   }
 
   async showMoreButtonClicked() {
@@ -211,8 +215,9 @@ export class MememoTextViewer extends LitElement {
         this.isSearching = false;
 
         // Update the shown documents
+        this.curQuery = e.data.payload.query;
         this.isFiltered = true;
-        this.curDocuments = e.data.payload.results;
+        this.curDocuments = this._formatSearchResults(e.data.payload.results);
         this.shownDocuments = this.curDocuments.slice(0, this.shownDocumentCap);
 
         // Start a new search if there is a pending query
@@ -241,6 +246,41 @@ export class MememoTextViewer extends LitElement {
   //==========================================================================||
   //                             Private Helpers                              ||
   //==========================================================================||
+  /**
+   * Format the search results to highlight matches
+   * @param results Current search results
+   */
+  _formatSearchResults = (results: string[]) => {
+    if (this.curQuery === null) {
+      throw Error('curQuery is null');
+    }
+
+    // Function to escape special characters for regular expression
+    const escapeRegExp = (string: string): string => {
+      return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
+    };
+
+    const formattedResults: string[] = [];
+
+    for (const result of results) {
+      // Try to avoid XSS attack
+      if (result.includes('iframe')) continue;
+      if (result.includes('<script')) continue;
+
+      // Escape special characters in the query
+      const escapedQuery = escapeRegExp(this.curQuery);
+
+      // Create a regular expression to find all occurrences of the query (case-insensitive)
+      const regex = new RegExp(`(${escapedQuery})`, 'gi');
+
+      // Replace all occurrences of the query in the result with <em>query</em>
+      const newResult = result.replace(regex, '<em>$1</em>');
+
+      formattedResults.push(newResult);
+    }
+
+    return formattedResults;
+  };
 
   //==========================================================================||
   //                           Templates and Styles                           ||
@@ -249,6 +289,10 @@ export class MememoTextViewer extends LitElement {
     // Compile the item list
     let items = html``;
     for (const [i, text] of this.shownDocuments.entries()) {
+      let itemText: DirectiveResult<typeof UnsafeHTMLDirective> | string = text;
+      if (this.curQuery !== null) {
+        itemText = unsafeHTML(text);
+      }
       items = html`${items}
         <div
           class="item"
@@ -263,7 +307,7 @@ export class MememoTextViewer extends LitElement {
             }
           }}
         >
-          ${text}
+          ${itemText}
         </div> `;
     }
 
