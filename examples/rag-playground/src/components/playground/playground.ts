@@ -10,7 +10,7 @@ import componentCSS from './playground.css?inline';
 interface DatasetInfo {
   dataURL: string;
   datasetName: string;
-  documentName: string;
+  datasetNameDisplay: string;
 }
 
 enum Dataset {
@@ -21,7 +21,7 @@ const datasets: Record<Dataset, DatasetInfo> = {
   [Dataset.Arxiv]: {
     dataURL: '/data/ml-arxiv-papers-1000.ndjson.gzip',
     datasetName: 'ml-arxiv-papers',
-    documentName: 'arXiv abstracts'
+    datasetNameDisplay: 'ML arXiv Abstracts (1k)'
   }
 };
 
@@ -79,7 +79,7 @@ export class MememoPlayground extends LitElement {
           <mememo-text-viewer
             dataURL=${datasets['arxiv'].dataURL}
             datasetName=${datasets['arxiv'].datasetName}
-            documentName=${datasets['arxiv'].documentName}
+            datasetNameDisplay=${datasets['arxiv'].datasetNameDisplay}
           ></mememo-text-viewer>
         </div>
 

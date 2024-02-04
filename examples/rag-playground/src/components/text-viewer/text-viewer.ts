@@ -1,6 +1,7 @@
 import { LitElement, css, unsafeCSS, html, PropertyValues } from 'lit';
 import { customElement, property, state, query } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
+import d3 from '../../utils/d3-import';
 
 import type { MememoWorkerMessage } from '../../workers/mememo-worker';
 
@@ -13,6 +14,7 @@ import crossSmallIcon from '../../images/icon-cross.svg?raw';
 
 const MAX_DOCUMENTS_IN_MEMORY = 1000;
 const DOCUMENT_INCREMENT = 100;
+const numberFormatter = d3.format(',');
 
 /**
  * Text viewer element.
@@ -29,7 +31,7 @@ export class MememoTextViewer extends LitElement {
   datasetName = 'my-dataset';
 
   @property({ type: String })
-  documentName = '';
+  datasetNameDisplay = '';
 
   @state()
   clickedItemIndexes: number[] = [];
@@ -45,6 +47,9 @@ export class MememoTextViewer extends LitElement {
 
   @state()
   isFiltered = false;
+
+  @state()
+  isSearchScrolled = false;
 
   @state()
   showSearchBarCancelButton = false;
@@ -211,11 +216,22 @@ export class MememoTextViewer extends LitElement {
       </div>`;
     }
 
+    // Compile the count label
+    let countLabel = html` <div class="count-label">
+      ${numberFormatter(this.documentCount)} documents
+    </div>`;
+
+    if (this.isFiltered) {
+      countLabel = html` <div class="count-label">
+        ${numberFormatter(this.shownDocuments.length)} search results
+      </div>`;
+    }
+
     return html`
       <div class="text-viewer">
         <div class="header-bar">
           <div class="header">MeMemo Database</div>
-          <div class="description">${this.documentCount} arXiv abstracts</div>
+          <div class="description">${this.datasetNameDisplay}</div>
         </div>
 
         <div class="search-bar-container">
@@ -243,13 +259,22 @@ export class MememoTextViewer extends LitElement {
           </div>
         </div>
 
-        <div class="content-list">
-          ${items}
+        <div class="list-container">
+          <div class="header-gap" ?is-hidden=${!this.isSearchScrolled}></div>
+
           <div
-            class="item add-more-button"
-            ?is-hidden=${this.documents.length === this.shownDocuments.length}
+            class="content-list"
+            @scroll=${(e: Event) => {
+              this.isSearchScrolled = (e.target as HTMLElement).scrollTop > 0;
+            }}
           >
-            Show More
+            ${countLabel} ${items}
+            <div
+              class="item add-more-button"
+              ?is-hidden=${this.documents.length === this.shownDocuments.length}
+            >
+              Show More
+            </div>
           </div>
         </div>
       </div>
