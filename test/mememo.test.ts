@@ -88,7 +88,7 @@ describe('constructor', () => {
 //==========================================================================||
 
 describe('insert()', () => {
-  it('insert() 10 items, 1 layer', () => {
+  it('insert() 10 items, 1 layer', async () => {
     const hnsw = new HNSW({
       distanceFunction: 'cosine',
       seed: 20240101
@@ -102,7 +102,7 @@ describe('insert()', () => {
     for (let i = 0; i < size; i++) {
       const curReportID = String(embeddingData.reportNumbers[i]);
       reportIDs.push(curReportID);
-      hnsw.insert(curReportID, embeddingData.embeddings[i]);
+      await hnsw.insert(curReportID, embeddingData.embeddings[i]);
     }
 
     // There should be only one layer, and all nodes are fully connected
@@ -110,7 +110,7 @@ describe('insert()', () => {
     _checkGraphLayers(reportIDs, hnsw, graph10Layer1);
   });
 
-  it('insert() 10 items, 2 layer', () => {
+  it('insert() 10 items, 2 layer', async () => {
     const hnsw = new HNSW({
       distanceFunction: 'cosine',
       seed: 10
@@ -124,14 +124,14 @@ describe('insert()', () => {
     for (let i = 0; i < size; i++) {
       const curReportID = String(embeddingData.reportNumbers[i]);
       reportIDs.push(curReportID);
-      hnsw.insert(curReportID, embeddingData.embeddings[i]);
+      await hnsw.insert(curReportID, embeddingData.embeddings[i]);
     }
 
     expect(hnsw.graphLayers.length).toBe(2);
     _checkGraphLayers(reportIDs, hnsw, graph10Layer2);
   });
 
-  it('insert() 30 items, 3 layer', () => {
+  it('insert() 30 items, 3 layer', async () => {
     const hnsw = new HNSW({
       distanceFunction: 'cosine',
       seed: 262
@@ -146,14 +146,14 @@ describe('insert()', () => {
     for (let i = 0; i < size; i++) {
       const curReportID = String(embeddingData.reportNumbers[i]);
       reportIDs.push(curReportID);
-      hnsw.insert(curReportID, embeddingData.embeddings[i]);
+      await hnsw.insert(curReportID, embeddingData.embeddings[i]);
     }
 
     expect(hnsw.graphLayers.length).toBe(3);
     _checkGraphLayers(reportIDs, hnsw, graph30Layer3);
   });
 
-  it('insert() 100 items, 6 layer', () => {
+  it('insert() 100 items, 6 layer', async () => {
     const hnsw = new HNSW({
       distanceFunction: 'cosine',
       seed: 11906
@@ -171,14 +171,14 @@ describe('insert()', () => {
     for (let i = 0; i < size; i++) {
       const curReportID = String(embeddingData.reportNumbers[i]);
       reportIDs.push(curReportID);
-      hnsw.insert(curReportID, embeddingData.embeddings[i]);
+      await hnsw.insert(curReportID, embeddingData.embeddings[i]);
     }
 
     expect(hnsw.graphLayers.length).toBe(6);
     _checkGraphLayers(reportIDs, hnsw, graph100Layer6);
   });
 
-  it('insert() 100 items, 3 layer, m=3', () => {
+  it('insert() 100 items, 3 layer, m=3', async () => {
     const hnsw = new HNSW({
       distanceFunction: 'cosine',
       seed: 21574,
@@ -201,7 +201,7 @@ describe('insert()', () => {
     for (let i = 0; i < size; i++) {
       const curReportID = String(embeddingData.reportNumbers[i]);
       reportIDs.push(curReportID);
-      hnsw.insert(curReportID, embeddingData.embeddings[i], levels[i]);
+      await hnsw.insert(curReportID, embeddingData.embeddings[i], levels[i]);
     }
 
     expect(hnsw.graphLayers.length).toBe(3);
@@ -239,7 +239,7 @@ describe('insert()', () => {
 //==========================================================================||
 
 describe('update()', () => {
-  it('update() 10 / 50 items', () => {
+  it('update() 10 / 50 items', async () => {
     const hnsw = new HNSW({
       distanceFunction: 'cosine',
       seed: 65975
@@ -255,7 +255,7 @@ describe('update()', () => {
     for (let i = 0; i < size; i++) {
       const curReportID = String(embeddingData.reportNumbers[i]);
       reportIDs.push(curReportID);
-      hnsw.insert(curReportID, embeddingData.embeddings[i]);
+      await hnsw.insert(curReportID, embeddingData.embeddings[i]);
     }
 
     // Update 10 nodes
@@ -275,7 +275,7 @@ describe('update()', () => {
     for (const pair of updateIndexes) {
       const oldKey = String(embeddingData.reportNumbers[pair[0]]);
       const newValue = embeddingData.embeddings[pair[1]];
-      hnsw.update(oldKey, newValue);
+      await hnsw.update(oldKey, newValue);
     }
 
     expect(hnsw.graphLayers.length).toBe(3);
@@ -288,7 +288,7 @@ describe('update()', () => {
 //==========================================================================||
 
 describe('markDelete()', () => {
-  it('markDelete(): insert 30 => delete 20 => insert 20', () => {
+  it('markDelete(): insert 30 => delete 20 => insert 20', async () => {
     const hnsw = new HNSW({
       distanceFunction: 'cosine',
       seed: 113082
@@ -306,7 +306,7 @@ describe('markDelete()', () => {
     for (let i = 0; i < 30; i++) {
       const curReportID = String(embeddingData.reportNumbers[i]);
       reportIDs.push(curReportID);
-      hnsw.insert(curReportID, embeddingData.embeddings[i]);
+      await hnsw.insert(curReportID, embeddingData.embeddings[i]);
     }
 
     // Delete 30 random nodes
@@ -316,21 +316,21 @@ describe('markDelete()', () => {
 
     for (const i of deleteIndexes) {
       const key = String(embeddingData.reportNumbers[i]);
-      hnsw.markDeleted(key);
+      await hnsw.markDeleted(key);
     }
 
     // Insert the rest 20 nodes
     for (let i = 30; i < size; i++) {
       const curReportID = String(embeddingData.reportNumbers[i]);
       reportIDs.push(curReportID);
-      hnsw.insert(curReportID, embeddingData.embeddings[i]);
+      await hnsw.insert(curReportID, embeddingData.embeddings[i]);
     }
 
     expect(hnsw.graphLayers.length).toBe(2);
     _checkGraphLayers(reportIDs, hnsw, graph50Delete1);
   });
 
-  it('markDelete(): insert 30 => delete 20 => un-delete 10 => insert 20', () => {
+  it('markDelete(): insert 30 => delete 20 => un-delete 10 => insert 20', async () => {
     const hnsw = new HNSW({
       distanceFunction: 'cosine',
       seed: 113082
@@ -348,7 +348,7 @@ describe('markDelete()', () => {
     for (let i = 0; i < 30; i++) {
       const curReportID = String(embeddingData.reportNumbers[i]);
       reportIDs.push(curReportID);
-      hnsw.insert(curReportID, embeddingData.embeddings[i]);
+      await hnsw.insert(curReportID, embeddingData.embeddings[i]);
     }
 
     // Delete 20 random nodes
@@ -358,7 +358,7 @@ describe('markDelete()', () => {
 
     for (const i of deleteIndexes) {
       const key = String(embeddingData.reportNumbers[i]);
-      hnsw.markDeleted(key);
+      await hnsw.markDeleted(key);
     }
 
     // Un-delete 10 random nodes
@@ -366,14 +366,14 @@ describe('markDelete()', () => {
 
     for (const i of unDeleteIndexes) {
       const key = String(embeddingData.reportNumbers[i]);
-      hnsw.unMarkDeleted(key);
+      await hnsw.unMarkDeleted(key);
     }
 
     // Insert the rest 20 nodes
     for (let i = 30; i < size; i++) {
       const curReportID = String(embeddingData.reportNumbers[i]);
       reportIDs.push(curReportID);
-      hnsw.insert(curReportID, embeddingData.embeddings[i]);
+      await hnsw.insert(curReportID, embeddingData.embeddings[i]);
     }
 
     expect(hnsw.graphLayers.length).toBe(2);
@@ -387,7 +387,7 @@ describe('markDelete()', () => {
 //==========================================================================||
 
 describe('query()', () => {
-  it('query(): 90/50 items, insert 30 => delete 20 => un-delete 10 => insert 20', () => {
+  it('query(): 90/50 items, insert 30 => delete 20 => un-delete 10 => insert 20', async () => {
     const hnsw = new HNSW({
       distanceFunction: 'cosine',
       seed: 113082
@@ -405,7 +405,7 @@ describe('query()', () => {
     for (let i = 0; i < 30; i++) {
       const curReportID = String(embeddingData.reportNumbers[i]);
       reportIDs.push(curReportID);
-      hnsw.insert(curReportID, embeddingData.embeddings[i]);
+      await hnsw.insert(curReportID, embeddingData.embeddings[i]);
     }
 
     // Delete 20 random nodes
@@ -415,7 +415,7 @@ describe('query()', () => {
 
     for (const i of deleteIndexes) {
       const key = String(embeddingData.reportNumbers[i]);
-      hnsw.markDeleted(key);
+      await hnsw.markDeleted(key);
     }
 
     // Un-delete 10 random nodes
@@ -423,19 +423,19 @@ describe('query()', () => {
 
     for (const i of unDeleteIndexes) {
       const key = String(embeddingData.reportNumbers[i]);
-      hnsw.unMarkDeleted(key);
+      await hnsw.unMarkDeleted(key);
     }
 
     // Insert the rest 20 nodes
     for (let i = 30; i < size; i++) {
       const curReportID = String(embeddingData.reportNumbers[i]);
       reportIDs.push(curReportID);
-      hnsw.insert(curReportID, embeddingData.embeddings[i]);
+      await hnsw.insert(curReportID, embeddingData.embeddings[i]);
     }
 
     // Check query results
     for (const q of query1) {
-      const myResults = hnsw.query(embeddingData.embeddings[q.i], q.k);
+      const myResults = await hnsw.query(embeddingData.embeddings[q.i], q.k);
       expect(myResults.length).toBe(q.result.length);
       for (const [i, myResult] of myResults.entries()) {
         expect(myResult.key).toBe(q.result[i][0]);

@@ -5,7 +5,7 @@
 
 import { randomLcg, randomUniform } from 'd3-random';
 import { MinHeap, MaxHeap, IGetCompareValue } from '@datastructures-js/heap';
-import { openDB } from 'idb';
+import { openDB, IDBPDatabase } from 'idb';
 
 type BuiltInDistanceFunction = 'cosine' | 'cosine-normalized';
 
@@ -93,48 +93,64 @@ class Node<T> {
  * An abstraction of a map storing nodes (in memory or in indexedDB)
  */
 class Nodes<T> {
-  indexedDBStore: string | undefined;
   nodesMap: Map<T, Node<T>>;
+  dbPromise: Promise<IDBPDatabase<string>> | null;
 
-  constructor(indexedDBStore?: string) {
-    this.indexedDBStore = indexedDBStore;
+  constructor(indexedDBStoreName?: string) {
     this.nodesMap = new Map<T, Node<T>>();
+    this.dbPromise = null;
+
+    if (indexedDBStoreName !== undefined) {
+      // Create a new store
+      this.dbPromise = openDB<string>('mememo-index-store', 1, {
+        upgrade(db) {
+          db.createObjectStore(indexedDBStoreName);
+        }
+      }).then(async db => {
+        // Clear the store from previous sessions
+        const tx = db.transaction(indexedDBStoreName, 'readwrite');
+        const store = tx.objectStore(indexedDBStoreName);
+        await store.clear();
+        await tx.done;
+        return db;
+      });
+    }
   }
 
-  get size() {
-    if (this.indexedDBStore === undefined) {
+  async size() {
+    if (this.dbPromise === null) {
       return this.nodesMap.size;
     } else {
       return 1;
     }
   }
 
-  has(key: T) {
-    if (this.indexedDBStore === undefined) {
+  async has(key: T) {
+    if (this.dbPromise === null) {
       return this.nodesMap.has(key);
     } else {
       return false;
     }
   }
 
-  get(key: T) {
-    if (this.indexedDBStore === undefined) {
+  async get(key: T) {
+    if (this.dbPromise === null) {
       return this.nodesMap.get(key);
     } else {
       return undefined;
     }
   }
 
-  set(key: T, value: Node<T>) {
-    if (this.indexedDBStore === undefined) {
+  async set(key: T, value: Node<T>) {
+    if (this.dbPromise === null) {
       this.nodesMap.set(key, value);
     } else {
       // pass
     }
   }
 
-  clear() {
-    if (this.indexedDBStore === undefined) {
+  async clear() {
+    if (this.dbPromise === null) {
       this.nodesMap = new Map<T, Node<T>>();
     } else {
       // pass
@@ -247,15 +263,16 @@ export class HNSW<T = string> {
    * @param maxLevel The max layer to insert this element. You don't need to set
    * this value in most cases. We add this parameter for testing purpose.
    */
-  insert(key: T, value: number[], maxLevel?: number | undefined) {
+  async insert(key: T, value: number[], maxLevel?: number | undefined) {
     // If the key already exists, throw an error
-    if (this.nodes.has(key)) {
-      const nodeInfo = this._getNodeInfo(key);
+    if (await this.nodes.has(key)) {
+      const nodeInfo = await this._getNodeInfo(key);
 
       if (nodeInfo.isDeleted) {
         // The node was flagged as deleted, so we update it using the new value
         nodeInfo.isDeleted = false;
-        this.update(key, value);
+        await this.nodes.set(key, nodeInfo);
+        await this.update(key, value);
         return;
       }
 
@@ -270,11 +287,11 @@ export class HNSW<T = string> {
     // console.log('random level:', level);
 
     // Add this node to the node index first
-    this.nodes.set(key, new Node(key, value));
+    await this.nodes.set(key, new Node(key, value));
 
     if (this.entryPointKey !== null) {
       // (1): Search closest point from layers above
-      const entryPointInfo = this._getNodeInfo(this.entryPointKey);
+      const entryPointInfo = await this._getNodeInfo(this.entryPointKey);
 
       // Start with the entry point
       let minDistance = this.distanceFunction(value, entryPointInfo.value);
@@ -282,7 +299,7 @@ export class HNSW<T = string> {
 
       // Top layer => all layers above the new node's highest layer
       for (let l = this.graphLayers.length - 1; l >= level + 1; l--) {
-        const result = this._searchLayerEF1(
+        const result = await this._searchLayerEF1(
           value,
           minNodeKey,
           minDistance,
@@ -304,7 +321,7 @@ export class HNSW<T = string> {
         const levelM = l === 0 ? this.mMax0 : this.m;
 
         // Search for closest points at this level to connect with
-        entryPoints = this._searchLayer(
+        entryPoints = await this._searchLayer(
           value,
           entryPoints,
           this.graphLayers[l],
@@ -312,7 +329,7 @@ export class HNSW<T = string> {
         );
 
         // Prune the neighbors so we have at most levelM neighbors
-        const selectedNeighbors = this._selectNeighborsHeuristic(
+        const selectedNeighbors = await this._selectNeighborsHeuristic(
           entryPoints,
           levelM
         );
@@ -343,10 +360,11 @@ export class HNSW<T = string> {
           neighborNeighborCandidates.push({ key, distance: neighbor.distance });
 
           // Apply the same heuristic to prune the neighbor's neighbors
-          const selectedNeighborNeighbors = this._selectNeighborsHeuristic(
-            neighborNeighborCandidates,
-            levelM
-          );
+          const selectedNeighborNeighbors =
+            await this._selectNeighborsHeuristic(
+              neighborNeighborCandidates,
+              levelM
+            );
 
           // Update this neighbor's neighborhood
           const newNeighborNode = new Map<T, number>();
@@ -375,17 +393,17 @@ export class HNSW<T = string> {
    * @param key Key of the element.
    * @param value The new embedding of the element
    */
-  update(key: T, value: number[]) {
-    if (!this.nodes.has(key)) {
+  async update(key: T, value: number[]) {
+    if (!(await this.nodes.has(key))) {
       throw Error(
         `The node with key ${key} does not exist. ` +
           'Use insert() to add new node.'
       );
     }
 
-    this.nodes.set(key, new Node(key, value));
+    await this.nodes.set(key, new Node(key, value));
 
-    if (this.entryPointKey === key && this.nodes.size === 1) {
+    if (this.entryPointKey === key && (await this.nodes.size()) === 1) {
       return;
     }
 
@@ -429,7 +447,8 @@ export class HNSW<T = string> {
       for (const firstDegreeNeighbor of curNode.keys()) {
         // (1) Find `efConstruction` number of candidates
         const candidateMaxHeap = new MaxHeap(nodeCompare);
-        const firstDegreeNeighborInfo = this._getNodeInfo(firstDegreeNeighbor);
+        const firstDegreeNeighborInfo =
+          await this._getNodeInfo(firstDegreeNeighbor);
 
         for (const secondDegreeNeighbor of secondDegreeNeighborhood) {
           if (secondDegreeNeighbor === firstDegreeNeighbor) {
@@ -437,7 +456,7 @@ export class HNSW<T = string> {
           }
 
           const secondDegreeNeighborInfo =
-            this._getNodeInfo(secondDegreeNeighbor);
+            await this._getNodeInfo(secondDegreeNeighbor);
 
           const distance = this.distanceFunction(
             firstDegreeNeighborInfo.value,
@@ -459,7 +478,7 @@ export class HNSW<T = string> {
 
         // (2) Select `levelM` number candidates out of the candidates
         const candidates = candidateMaxHeap.toArray();
-        const selectedCandidates = this._selectNeighborsHeuristic(
+        const selectedCandidates = await this._selectNeighborsHeuristic(
           candidates,
           levelM
         );
@@ -476,7 +495,7 @@ export class HNSW<T = string> {
     // After re-indexing the neighbors of the updating node, we also need to
     // update the outgoing edges of the updating node in all layers. This is
     // similar to the initial indexing procedure in insert()
-    this._reIndexNode(key, value);
+    await this._reIndexNode(key, value);
   }
 
   /**
@@ -490,8 +509,8 @@ export class HNSW<T = string> {
    *
    * @param key Key of the node to delete
    */
-  markDeleted(key: T) {
-    if (!this.nodes.has(key)) {
+  async markDeleted(key: T) {
+    if (!(await this.nodes.has(key))) {
       throw Error(`Node with key ${key} does not exist.`);
     }
 
@@ -503,7 +522,8 @@ export class HNSW<T = string> {
       // Traverse from top layer to layer 0
       for (let i = this.graphLayers.length - 1; i >= 0; i--) {
         for (const otherKey of this.graphLayers[i].graph.keys()) {
-          if (otherKey !== key && !this.nodes.get(otherKey)!.isDeleted) {
+          const otherNode = await this.nodes.get(otherKey);
+          if (otherKey !== key && !otherNode!.isDeleted) {
             newEntryPointKey = otherKey;
             break;
           }
@@ -519,15 +539,16 @@ export class HNSW<T = string> {
 
       if (newEntryPointKey === null) {
         // There is no nodes in the index
-        this.clear();
+        await this.clear();
         return;
       }
 
       this.entryPointKey = newEntryPointKey;
     }
 
-    const nodeInfo = this._getNodeInfo(key);
+    const nodeInfo = await this._getNodeInfo(key);
     nodeInfo.isDeleted = true;
+    await this.nodes.set(key, nodeInfo);
   }
 
   /**
@@ -538,17 +559,18 @@ export class HNSW<T = string> {
    *
    * @param key Key of the node to recover
    */
-  unMarkDeleted(key: T) {
-    const nodeInfo = this._getNodeInfo(key);
+  async unMarkDeleted(key: T) {
+    const nodeInfo = await this._getNodeInfo(key);
     nodeInfo.isDeleted = false;
+    await this.nodes.set(key, nodeInfo);
   }
 
   /**
    * Reset the index.
    */
-  clear() {
+  async clear() {
     this.graphLayers = [];
-    this.nodes.clear();
+    await this.nodes.clear();
   }
 
   /**
@@ -557,7 +579,7 @@ export class HNSW<T = string> {
    * @param k k nearest neighbors of the query value
    * @param ef Number of neighbors to search at each step
    */
-  query(
+  async query(
     value: number[],
     k: number | undefined = undefined,
     ef: number | undefined = this.efConstruction
@@ -568,11 +590,11 @@ export class HNSW<T = string> {
 
     // EF=1 search from the top layer to layer 1
     let minNodeKey: T = this.entryPointKey;
-    const entryPointInfo = this._getNodeInfo(minNodeKey);
+    const entryPointInfo = await this._getNodeInfo(minNodeKey);
     let minNodeDistance = this.distanceFunction(entryPointInfo.value, value);
 
     for (let l = this.graphLayers.length - 1; l >= 1; l--) {
-      const result = this._searchLayerEF1(
+      const result = await this._searchLayerEF1(
         value,
         minNodeKey,
         minNodeDistance,
@@ -587,7 +609,7 @@ export class HNSW<T = string> {
     const entryPoints: SearchNodeCandidate<T>[] = [
       { key: minNodeKey, distance: minNodeDistance }
     ];
-    const candidates = this._searchLayer(
+    const candidates = await this._searchLayer(
       value,
       entryPoints,
       this.graphLayers[0],
@@ -610,13 +632,13 @@ export class HNSW<T = string> {
    * @param key Key of an existing element
    * @param value Embedding value of an existing element
    */
-  _reIndexNode(key: T, value: number[]) {
+  async _reIndexNode(key: T, value: number[]) {
     if (this.entryPointKey === null) {
       throw Error('entryPointKey is null');
     }
 
     let minNodeKey: T = this.entryPointKey;
-    const entryPointInfo = this._getNodeInfo(minNodeKey);
+    const entryPointInfo = await this._getNodeInfo(minNodeKey);
     let minNodeDistance = this.distanceFunction(entryPointInfo.value, value);
     let entryPoints: SearchNodeCandidate<T>[] = [
       { key: minNodeKey, distance: minNodeDistance }
@@ -630,7 +652,7 @@ export class HNSW<T = string> {
 
       if (!curGraphLayer.graph.has(key)) {
         // Layers above: Ef = 1 search
-        const result = this._searchLayerEF1(
+        const result = await this._searchLayerEF1(
           value,
           minNodeKey,
           minNodeDistance,
@@ -644,7 +666,7 @@ export class HNSW<T = string> {
         const levelM = l === 0 ? this.mMax0 : this.m;
 
         // Search for closest points at this level to connect with
-        entryPoints = this._searchLayer(
+        entryPoints = await this._searchLayer(
           value,
           entryPoints,
           curGraphLayer,
@@ -656,7 +678,7 @@ export class HNSW<T = string> {
         entryPoints = entryPoints.filter(d => d.key !== key);
 
         // Prune the neighbors so we have at most levelM neighbors
-        const selectedNeighbors = this._selectNeighborsHeuristic(
+        const selectedNeighbors = await this._selectNeighborsHeuristic(
           entryPoints,
           levelM
         );
@@ -679,7 +701,7 @@ export class HNSW<T = string> {
    * @param graphLayer Current graph layer
    * @param canReturnDeletedNodes Whether to return deleted nodes
    */
-  _searchLayerEF1(
+  async _searchLayerEF1(
     queryValue: number[],
     entryPointKey: T,
     entryPointDistance: number,
@@ -714,7 +736,7 @@ export class HNSW<T = string> {
         if (!visitedNodes.has(key)) {
           visitedNodes.add(key);
           // Compute the distance between the node and query
-          const curNodeInfo = this._getNodeInfo(key);
+          const curNodeInfo = await this._getNodeInfo(key);
           const distance = this.distanceFunction(curNodeInfo.value, queryValue);
 
           // Continue explore the node's neighbors if the distance is improving
@@ -745,7 +767,7 @@ export class HNSW<T = string> {
    * @param ef Number of neighbors to consider during search
    * @param canReturnDeletedNodes Whether to return deleted nodes
    */
-  _searchLayer(
+  async _searchLayer(
     queryValue: number[],
     entryPoints: SearchNodeCandidate<T>[],
     graphLayer: GraphLayer<T>,
@@ -788,7 +810,7 @@ export class HNSW<T = string> {
           visitedNodes.add(neighborKey);
 
           // Compute the distance of the neighbor and query
-          const neighborInfo = this._getNodeInfo(neighborKey);
+          const neighborInfo = await this._getNodeInfo(neighborKey);
           const distance = this.distanceFunction(
             queryValue,
             neighborInfo.value
@@ -835,7 +857,7 @@ export class HNSW<T = string> {
    * @param candidates Potential neighbors to select from
    * @param maxSize Max neighbors to connect to
    */
-  _selectNeighborsHeuristic(
+  async _selectNeighborsHeuristic(
     candidates: SearchNodeCandidate<T>[],
     maxSize: number
   ) {
@@ -866,8 +888,8 @@ export class HNSW<T = string> {
 
       // Iterate selected neighbors to see if the candidate is further away
       for (const selectedNeighbor of selectedNeighbors) {
-        const candidateInfo = this._getNodeInfo(candidate.key);
-        const neighborInfo = this._getNodeInfo(selectedNeighbor.key);
+        const candidateInfo = await this._getNodeInfo(candidate.key);
+        const neighborInfo = await this._getNodeInfo(selectedNeighbor.key);
 
         const distanceCandidateToNeighbor = this.distanceFunction(
           candidateInfo.value,
@@ -902,8 +924,8 @@ export class HNSW<T = string> {
    * Helper function to get the node in the global index
    * @param key Node key
    */
-  _getNodeInfo(key: T) {
-    const node = this.nodes.get(key);
+  async _getNodeInfo(key: T) {
+    const node = await this.nodes.get(key);
     if (node === undefined) {
       throw Error(`Can't find node with key ${key}`);
     }
