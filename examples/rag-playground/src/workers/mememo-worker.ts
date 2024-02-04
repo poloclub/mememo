@@ -29,7 +29,7 @@ export type MememoWorkerMessage =
       payload: {
         isFirstBatch: boolean;
         isLastBatch: boolean;
-        points: DocumentRecord[];
+        documents: string[];
         loadedPointCount: number;
       };
     }
@@ -168,10 +168,15 @@ const processPointStream = async (point: DocumentRecordStreamData) => {
       payload: {
         isFirstBatch: lastDrawnPoints === null,
         isLastBatch: false,
-        points: pendingDataPoints,
+        documents: pendingDataPoints.map(d => d.text),
         loadedPointCount
       }
     };
+
+    await new Promise<void>(resolve => {
+      setTimeout(resolve, 500);
+    });
+
     postMessage(result);
 
     sentPointCount += pendingDataPoints.length;
@@ -191,7 +196,7 @@ const pointStreamFinished = () => {
     payload: {
       isFirstBatch: lastDrawnPoints === null,
       isLastBatch: true,
-      points: pendingDataPoints,
+      documents: pendingDataPoints.map(d => d.text),
       loadedPointCount
     }
   };
@@ -207,7 +212,7 @@ const pointStreamFinished = () => {
  * @param query Query string
  * @param limit Number of query items
  */
-const searchPoint = async (query: string, limit: number, requestID: string) => {
+const searchPoint = async (query: string, limit: number, requestID: number) => {
   if (documentDBPromise === null) {
     throw Error('documentDB is null');
   }

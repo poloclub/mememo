@@ -7,6 +7,24 @@ import '../text-viewer/text-viewer';
 
 import componentCSS from './playground.css?inline';
 
+interface DatasetInfo {
+  dataURL: string;
+  datasetName: string;
+  documentName: string;
+}
+
+enum Dataset {
+  Arxiv = 'arxiv'
+}
+
+const datasets: Record<Dataset, DatasetInfo> = {
+  [Dataset.Arxiv]: {
+    dataURL: '/data/ml-arxiv-papers-1000.ndjson.gzip',
+    datasetName: 'ml-arxiv-papers',
+    documentName: 'arXiv abstracts'
+  }
+};
+
 /**
  * Playground element.
  *
@@ -58,7 +76,11 @@ export class MememoPlayground extends LitElement {
         </div>
 
         <div class="container container-text">
-          <mememo-text-viewer></mememo-text-viewer>
+          <mememo-text-viewer
+            dataURL=${datasets['arxiv'].dataURL}
+            datasetName=${datasets['arxiv'].datasetName}
+            documentName=${datasets['arxiv'].documentName}
+          ></mememo-text-viewer>
         </div>
 
         <div class="container container-prompt">Prompt</div>

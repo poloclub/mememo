@@ -6,13 +6,13 @@ import type { MememoWorkerMessage } from '../../workers/mememo-worker';
 
 // Assets
 import componentCSS from './text-viewer.css?inline';
+import MememoWorkerInline from '../../workers/mememo-worker?worker&inline';
 import searchIcon from '../../images/icon-search.svg?raw';
 import crossIcon from '../../images/icon-cross-thick.svg?raw';
 import crossSmallIcon from '../../images/icon-cross.svg?raw';
 
-import MememoWorkerInline from '../../workers/mememo-worker?worker&inline';
-import paperDataJSON from '../../../notebooks/ml-arxiv-papers-1000.json';
-const paperData = paperDataJSON as string[];
+const MAX_DOCUMENTS_IN_MEMORY = 1000;
+const DOCUMENT_INCREMENT = 100;
 
 /**
  * Text viewer element.
@@ -22,17 +22,38 @@ export class MememoTextViewer extends LitElement {
   //==========================================================================||
   //                              Class Properties                            ||
   //==========================================================================||
+  @property({ type: String })
+  dataURL: string | undefined;
+
+  @property({ type: String })
+  datasetName = 'my-dataset';
+
+  @property({ type: String })
+  documentName = '';
+
   @state()
   clickedItemIndexes: number[] = [];
 
+  documents: string[] = [];
+  curDocumentCap = 100;
+
   @state()
-  shownItems: string[] = paperData.slice(0, 100);
+  documentCount = 0;
+
+  @state()
+  shownDocuments: string[] = [];
+
+  @state()
+  isFiltered = false;
 
   @state()
   showSearchBarCancelButton = false;
 
   mememoWorker: Worker;
   mememoFinishedLoading: Promise<void>;
+
+  @state()
+  isMememoFinishedLoading = false;
   markMememoFinishedLoading = () => {};
 
   lexicalSearchRequestCount = 0;
@@ -56,8 +77,6 @@ export class MememoTextViewer extends LitElement {
       (e: MessageEvent<MememoWorkerMessage>) =>
         this.loaderWorkerMessageHandler(e)
     );
-
-    this.initData();
   }
 
   firstUpdated() {
@@ -72,23 +91,35 @@ export class MememoTextViewer extends LitElement {
       };
       this.mememoWorker.postMessage(message);
     });
+
+    console.log(this.dataURL);
   }
 
   /**
    * This method is called before new DOM is updated and rendered
    * @param changedProperties Property that has been changed
    */
-  willUpdate(changedProperties: PropertyValues<this>) {}
+  willUpdate(changedProperties: PropertyValues<this>) {
+    if (
+      changedProperties.has('dataURL') &&
+      changedProperties.get('dataURL') === undefined
+    ) {
+      this.initData();
+    }
+  }
 
   //==========================================================================||
   //                              Custom Methods                              ||
   //==========================================================================||
   initData() {
+    if (this.dataURL === undefined) {
+      throw Error('dataURL is undefined');
+    }
     const message: MememoWorkerMessage = {
       command: 'startLoadData',
       payload: {
-        url: '/data/ml-arxiv-papers-1000.ndjson.gzip',
-        datasetName: 'ml-arxiv-papers'
+        url: this.dataURL,
+        datasetName: this.datasetName
       }
     };
     this.mememoWorker.postMessage(message);
@@ -104,9 +135,25 @@ export class MememoTextViewer extends LitElement {
   loaderWorkerMessageHandler(e: MessageEvent<MememoWorkerMessage>) {
     switch (e.data.command) {
       case 'transferLoadData': {
-        // Mark the loading has completed
+        const documents = e.data.payload.documents;
+        this.documentCount += documents.length;
+
+        // Load some documents in the memory in the main thread
+        if (this.documents.length < MAX_DOCUMENTS_IN_MEMORY) {
+          for (const document of documents) {
+            this.documents.push(document);
+          }
+        }
+
+        // Add data to the shown list
+        if (this.shownDocuments.length < this.curDocumentCap) {
+          this.shownDocuments = [...this.shownDocuments, ...documents];
+        }
+
         if (e.data.payload.isLastBatch) {
+          // Mark the loading has completed
           this.markMememoFinishedLoading();
+          this.isMememoFinishedLoading = true;
         }
         break;
       }
@@ -132,7 +179,7 @@ export class MememoTextViewer extends LitElement {
   render() {
     // Compile the item list
     let items = html``;
-    for (const [i, text] of this.shownItems.entries()) {
+    for (const [i, text] of this.shownDocuments.entries()) {
       items = html`${items}
         <div
           class="item"
@@ -151,25 +198,39 @@ export class MememoTextViewer extends LitElement {
         </div> `;
     }
 
+    // Configure search bar icon (loading => show loader, finished => search icon)
+    let searchBarIcon = html`<span class="svg-icon search"
+      >${unsafeHTML(searchIcon)}</span
+    >`;
+
+    if (!this.isMememoFinishedLoading) {
+      searchBarIcon = html` <div class="search-bar-loader">
+        <div class="loader-container">
+          <div class="circle-loader"></div>
+        </div>
+      </div>`;
+    }
+
     return html`
       <div class="text-viewer">
         <div class="header-bar">
           <div class="header">MeMemo Database</div>
-          <div class="description">1000 arXiv abstracts</div>
+          <div class="description">${this.documentCount} arXiv abstracts</div>
         </div>
 
         <div class="search-bar-container">
           <div class="search-bar">
-            <span class="icon-container">
-              <span class="svg-icon search">${unsafeHTML(searchIcon)}</span>
-            </span>
+            <span class="icon-container"> ${searchBarIcon} </span>
 
             <input
               id="search-bar-input"
               type="text"
               name="search-bar-input"
+              ?disabled=${!this.isMememoFinishedLoading}
               @input=${(e: InputEvent) => this.searchBarEntered(e)}
-              placeholder="Search local documents"
+              placeholder=${this.isMememoFinishedLoading
+                ? 'Search local documents'
+                : 'Loading documents and embeddings...'}
             />
 
             <span
@@ -182,7 +243,15 @@ export class MememoTextViewer extends LitElement {
           </div>
         </div>
 
-        <div class="content-list">${items}</div>
+        <div class="content-list">
+          ${items}
+          <div
+            class="item add-more-button"
+            ?is-hidden=${this.documents.length === this.shownDocuments.length}
+          >
+            Show More
+          </div>
+        </div>
       </div>
     `;
   }

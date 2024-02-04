@@ -31,6 +31,7 @@
 .description {
   line-height: 1;
   font-size: var(--font-d1);
+  font-variant-numeric: tabular-nums;
 }
 
 .svg-icon {
@@ -68,9 +69,11 @@
   display: flex;
   flex-flow: row;
   background-color: white;
+  align-items: center;
 
   &:has(input:focus) {
-    border: 1px solid var(--blue-500);
+    outline: 2px solid var(--focus-border-color);
+    border: 1px solid var(--focus-border-color);
   }
 
   & input {
@@ -79,6 +82,10 @@
     width: 100%;
     height: 100%;
     font-size: var(--font-d1);
+
+    &:disabled {
+      cursor: no-drop;
+    }
 
     &::placeholder {
       color: var(--gray-600);
@@ -97,6 +104,7 @@
     justify-content: center;
     cursor: pointer;
     color: var(--gray-600);
+    position: relative;
 
     transition: opacity 100ms ease-in-out;
 
@@ -118,7 +126,6 @@
   .svg-icon {
     &.search {
       position: relative;
-      top: 2px;
     }
     &.cross {
       border-radius: 100%;
@@ -193,17 +200,18 @@
   }
 
   .add-more-button {
-    font-weight: 600;
+    font-weight: 800;
     cursor: pointer;
     width: 100%;
     text-align: center;
+    padding: 10px;
 
     display: flex;
     justify-content: center;
     align-items: center;
 
-    color: var(--purple-700);
-    background-color: var(--gray-100);
+    color: var(--blue-500);
+    background-color: var(--gray-50);
 
     user-select: none;
     -webkit-user-select: none;
@@ -212,20 +220,59 @@
       background-color 150ms ease-in-out;
 
     &:hover {
-      background-color: var(--gray-200);
-      color: var(--purple-600);
+      background-color: var(--gray-100);
+      color: var(--blue-600);
     }
 
     &:active {
-      color: var(--purple-800);
+      color: var(--blue-700);
     }
 
-    &.hidden {
+    &[is-hidden] {
       display: none;
     }
 
     span {
       padding: 12px;
     }
+  }
+}
+
+@keyframes circle-loader-animation {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+.search-bar-loader {
+  position: relative;
+  width: 1em;
+  height: 1em;
+  margin-right: 5px;
+}
+
+.loader-container {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  align-items: center;
+  white-space: nowrap;
+  color: var(--gray-700);
+  line-height: 1;
+  font-size: var(--font-u2);
+
+  .circle-loader {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    border: 3px solid;
+    border-color: color-mix(in lab, var(--gray-400) 100%, white 30%);
+    border-right-color: var(--gray-600);
+    animation: circle-loader-animation 1s infinite linear;
   }
 }
