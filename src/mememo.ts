@@ -5,6 +5,7 @@
 
 import { randomLcg, randomUniform } from 'd3-random';
 import { MinHeap, MaxHeap, IGetCompareValue } from '@datastructures-js/heap';
+import { openDB } from 'idb';
 
 type BuiltInDistanceFunction = 'cosine' | 'cosine-normalized';
 
@@ -89,6 +90,59 @@ class Node<T> {
 }
 
 /**
+ * An abstraction of a map storing nodes (in memory or in indexedDB)
+ */
+class Nodes<T> {
+  indexedDBStore: string | undefined;
+  nodesMap: Map<T, Node<T>>;
+
+  constructor(indexedDBStore?: string) {
+    this.indexedDBStore = indexedDBStore;
+    this.nodesMap = new Map<T, Node<T>>();
+  }
+
+  get size() {
+    if (this.indexedDBStore === undefined) {
+      return this.nodesMap.size;
+    } else {
+      return 1;
+    }
+  }
+
+  has(key: T) {
+    if (this.indexedDBStore === undefined) {
+      return this.nodesMap.has(key);
+    } else {
+      return false;
+    }
+  }
+
+  get(key: T) {
+    if (this.indexedDBStore === undefined) {
+      return this.nodesMap.get(key);
+    } else {
+      return undefined;
+    }
+  }
+
+  set(key: T, value: Node<T>) {
+    if (this.indexedDBStore === undefined) {
+      this.nodesMap.set(key, value);
+    } else {
+      // pass
+    }
+  }
+
+  clear() {
+    if (this.indexedDBStore === undefined) {
+      this.nodesMap = new Map<T, Node<T>>();
+    } else {
+      // pass
+    }
+  }
+}
+
+/**
  * One graph layer in the HNSW index
  */
 class GraphLayer<T> {
@@ -127,7 +181,7 @@ export class HNSW<T = string> {
   rng: () => number;
 
   /** A collection all the nodes */
-  nodes: Map<T, Node<T>>;
+  nodes: Nodes<T>;
 
   /** A list of all layers */
   graphLayers: GraphLayer<T>[];
@@ -183,7 +237,7 @@ export class HNSW<T = string> {
 
     // Data structures
     this.graphLayers = [];
-    this.nodes = new Map<T, Node<T>>();
+    this.nodes = new Nodes();
   }
 
   /**
@@ -494,7 +548,7 @@ export class HNSW<T = string> {
    */
   clear() {
     this.graphLayers = [];
-    this.nodes = new Map<T, Node<T>>();
+    this.nodes.clear();
   }
 
   /**
