@@ -9,6 +9,7 @@ export default defineConfig({
     browser: {
       enabled: true,
       name: 'chrome'
-    }
+    },
+    testTimeout: 60000
   }
 });
