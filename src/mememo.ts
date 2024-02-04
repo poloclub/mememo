@@ -283,37 +283,14 @@ export class HNSW<T extends IDBValidKey = string> {
   }
 
   /**
-   * Insert a new element to the index.
-   * @param key Key of the new element.
-   * @param value The embedding of the new element to insert.
-   * @param maxLevel The max layer to insert this element. You don't need to set
-   * this value in most cases. We add this parameter for testing purpose.
+   * Helper function to insert the new element to the graphs
+   * @param key Key of the new element
+   * @param value Embeddings of the new element
+   * @param maxLevel Max level for this insert
    */
-  async insert(key: T, value: number[], maxLevel?: number | undefined) {
-    // If the key already exists, throw an error
-    if (await this.nodes.has(key)) {
-      const nodeInfo = await this._getNodeInfo(key);
-
-      if (nodeInfo.isDeleted) {
-        // The node was flagged as deleted, so we update it using the new value
-        nodeInfo.isDeleted = false;
-        await this.nodes.set(key, nodeInfo);
-        await this.update(key, value);
-        return;
-      }
-
-      throw Error(
-        `There is already a node with key ${JSON.stringify(key)} in the` +
-          'index. Use update() to update this node.'
-      );
-    }
-
+  async _insertToGraph(key: T, value: number[], maxLevel?: number) {
     // Randomly determine the max level of this node
     const level = maxLevel === undefined ? this._getRandomLevel() : maxLevel;
-    // console.log('random level:', level);
-
-    // Add this node to the node index first
-    await this.nodes.set(key, new Node(key, value));
 
     if (this.entryPointKey !== null) {
       // (1): Search closest point from layers above
@@ -414,6 +391,39 @@ export class HNSW<T extends IDBValidKey = string> {
       // Set entry point as the last added node
       this.entryPointKey = key;
     }
+  }
+
+  /**
+   * Insert a new element to the index.
+   * @param key Key of the new element.
+   * @param value The embedding of the new element to insert.
+   * @param maxLevel The max layer to insert this element. You don't need to set
+   * this value in most cases. We add this parameter for testing purpose.
+   */
+  async insert(key: T, value: number[], maxLevel?: number | undefined) {
+    // If the key already exists, throw an error
+    if (await this.nodes.has(key)) {
+      const nodeInfo = await this._getNodeInfo(key);
+
+      if (nodeInfo.isDeleted) {
+        // The node was flagged as deleted, so we update it using the new value
+        nodeInfo.isDeleted = false;
+        await this.nodes.set(key, nodeInfo);
+        await this.update(key, value);
+        return;
+      }
+
+      throw Error(
+        `There is already a node with key ${JSON.stringify(key)} in the` +
+          'index. Use update() to update this node.'
+      );
+    }
+
+    // Add this node to the node index first
+    await this.nodes.set(key, new Node(key, value));
+
+    // Insert the node to the graphs
+    await this._insertToGraph(key, value, maxLevel);
   }
 
   /**
