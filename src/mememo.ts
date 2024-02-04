@@ -7,9 +7,10 @@ import { randomLcg, randomUniform } from 'd3-random';
 import { MinHeap, MaxHeap, IGetCompareValue } from '@datastructures-js/heap';
 import { openDB, IDBPDatabase } from 'idb';
 
+export type IDBValidKey = number | string | Date | BufferSource | IDBValidKey[];
 type BuiltInDistanceFunction = 'cosine' | 'cosine-normalized';
 
-interface SearchNodeCandidate<T> {
+interface SearchNodeCandidate<T extends IDBValidKey> {
   key: T;
   distance: number;
 }
@@ -67,12 +68,17 @@ interface HNSWConfig {
 
   /** Optional random seed. */
   seed?: number;
+
+  /** Whether to use indexedDB. If this is false, store all embeddings in
+   * the memory. Default to false so that MeMemo can be used in node.js.
+   */
+  useIndexedDB?: boolean;
 }
 
 /**
  * A node in the HNSW graph.
  */
-class Node<T> {
+class Node<T extends IDBValidKey> {
   /** The unique key of an element. */
   key: T;
 
@@ -92,8 +98,9 @@ class Node<T> {
 /**
  * An abstraction of a map storing nodes (in memory or in indexedDB)
  */
-class Nodes<T> {
+class Nodes<T extends IDBValidKey> {
   nodesMap: Map<T, Node<T>>;
+  indexedDBStoreName = '';
   dbPromise: Promise<IDBPDatabase<string>> | null;
 
   constructor(indexedDBStoreName?: string) {
@@ -101,6 +108,8 @@ class Nodes<T> {
     this.dbPromise = null;
 
     if (indexedDBStoreName !== undefined) {
+      this.indexedDBStoreName = indexedDBStoreName;
+
       // Create a new store
       this.dbPromise = openDB<string>('mememo-index-store', 1, {
         upgrade(db) {
@@ -121,7 +130,9 @@ class Nodes<T> {
     if (this.dbPromise === null) {
       return this.nodesMap.size;
     } else {
-      return 1;
+      const db = await this.dbPromise;
+      const keys = await db.getAllKeys(this.indexedDBStoreName);
+      return keys.length;
     }
   }
 
@@ -129,7 +140,9 @@ class Nodes<T> {
     if (this.dbPromise === null) {
       return this.nodesMap.has(key);
     } else {
-      return false;
+      const db = await this.dbPromise;
+      const result = await db.getKey(this.indexedDBStoreName, key);
+      return result !== undefined;
     }
   }
 
@@ -137,7 +150,11 @@ class Nodes<T> {
     if (this.dbPromise === null) {
       return this.nodesMap.get(key);
     } else {
-      return undefined;
+      const db = await this.dbPromise;
+      const result = await (db.get(this.indexedDBStoreName, key) as Promise<
+        Node<T> | undefined
+      >);
+      return result;
     }
   }
 
@@ -145,7 +162,8 @@ class Nodes<T> {
     if (this.dbPromise === null) {
       this.nodesMap.set(key, value);
     } else {
-      // pass
+      const db = await this.dbPromise;
+      await db.put(this.indexedDBStoreName, value, key);
     }
   }
 
@@ -153,7 +171,8 @@ class Nodes<T> {
     if (this.dbPromise === null) {
       this.nodesMap = new Map<T, Node<T>>();
     } else {
-      // pass
+      const db = await this.dbPromise;
+      await db.clear(this.indexedDBStoreName);
     }
   }
 }
@@ -161,7 +180,7 @@ class Nodes<T> {
 /**
  * One graph layer in the HNSW index
  */
-class GraphLayer<T> {
+class GraphLayer<T extends IDBValidKey> {
   /** The graph maps a key to its neighbor and distances */
   graph: Map<T, Map<T, number>>;
 
@@ -178,7 +197,7 @@ class GraphLayer<T> {
 /**
  * HNSW (Hierarchical Navigable Small World) class.
  */
-export class HNSW<T = string> {
+export class HNSW<T extends IDBValidKey = string> {
   distanceFunction: (a: number[], b: number[]) => number;
 
   /** The max number of neighbors for each node. */
@@ -219,6 +238,7 @@ export class HNSW<T = string> {
    * have in the zero layer. Default 2 * m.
    * @param config.ml - Normalizer parameter. Default 1 / ln(m)
    * @param config.seed - Optional random seed.
+   * @param config.useIndexedDB - Whether to use indexedDB
    */
   constructor({
     distanceFunction,
@@ -226,7 +246,8 @@ export class HNSW<T = string> {
     efConstruction,
     mMax0,
     ml,
-    seed
+    seed,
+    useIndexedDB
   }: HNSWConfig) {
     // Initialize HNSW parameters
     this.m = m || 16;
@@ -251,9 +272,14 @@ export class HNSW<T = string> {
       }
     }
 
+    if (useIndexedDB === undefined || useIndexedDB === false) {
+      this.nodes = new Nodes();
+    } else {
+      this.nodes = new Nodes('mememo-store');
+    }
+
     // Data structures
     this.graphLayers = [];
-    this.nodes = new Nodes();
   }
 
   /**
@@ -277,8 +303,8 @@ export class HNSW<T = string> {
       }
 
       throw Error(
-        `There is already a node with key ${key} in the index. ` +
-          'Use update() to update this node.'
+        `There is already a node with key ${JSON.stringify(key)} in the` +
+          'index. Use update() to update this node.'
       );
     }
 
@@ -346,7 +372,9 @@ export class HNSW<T = string> {
         for (const neighbor of selectedNeighbors) {
           const neighborNode = this.graphLayers[l].graph.get(neighbor.key);
           if (neighborNode === undefined) {
-            throw Error(`Can't find neighbor node ${neighbor.key}`);
+            throw Error(
+              `Can't find neighbor node ${JSON.stringify(neighbor.key)}`
+            );
           }
 
           // Add the neighbor's existing neighbors as candidates
@@ -396,7 +424,7 @@ export class HNSW<T = string> {
   async update(key: T, value: number[]) {
     if (!(await this.nodes.has(key))) {
       throw Error(
-        `The node with key ${key} does not exist. ` +
+        `The node with key ${JSON.stringify(key)} does not exist. ` +
           'Use insert() to add new node.'
       );
     }
@@ -431,7 +459,9 @@ export class HNSW<T = string> {
         const firstDegreeNeighborNode =
           curGraphLayer.graph.get(firstDegreeNeighbor);
         if (firstDegreeNeighborNode === undefined) {
-          throw Error(`Can't find node with key ${firstDegreeNeighbor}`);
+          throw Error(
+            `Can't find node with key ${JSON.stringify(firstDegreeNeighbor)}`
+          );
         }
 
         for (const secondDegreeNeighbor of firstDegreeNeighborNode.keys()) {
@@ -511,7 +541,7 @@ export class HNSW<T = string> {
    */
   async markDeleted(key: T) {
     if (!(await this.nodes.has(key))) {
-      throw Error(`Node with key ${key} does not exist.`);
+      throw Error(`Node with key ${JSON.stringify(key)} does not exist.`);
     }
 
     // Special case: the user is trying to delete the entry point
@@ -729,7 +759,9 @@ export class HNSW<T = string> {
 
       const curNode = graphLayer.graph.get(curCandidate.key);
       if (curNode === undefined) {
-        throw Error(`Cannot find node with key ${curCandidate.key}`);
+        throw Error(
+          `Cannot find node with key ${JSON.stringify(curCandidate.key)}`
+        );
       }
 
       for (const key of curNode.keys()) {
@@ -802,7 +834,9 @@ export class HNSW<T = string> {
       // Update candidates and found nodes using the current node's neighbors
       const curNode = graphLayer.graph.get(nearestCandidate.key);
       if (curNode === undefined) {
-        throw Error(`Cannot find node with key ${nearestCandidate.key}`);
+        throw Error(
+          `Cannot find node with key ${JSON.stringify(nearestCandidate.key)}`
+        );
       }
 
       for (const neighborKey of curNode.keys()) {
@@ -927,7 +961,7 @@ export class HNSW<T = string> {
   async _getNodeInfo(key: T) {
     const node = await this.nodes.get(key);
     if (node === undefined) {
-      throw Error(`Can't find node with key ${key}`);
+      throw Error(`Can't find node with key ${JSON.stringify(key)}`);
     }
     return node;
   }

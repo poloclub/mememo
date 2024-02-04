@@ -34,9 +34,10 @@
   },
   "homepage": "https://github.com/xiaohk/mememo#readme",
   "scripts": {
-    "test": "vitest",
-    "test:ui": "vitest --ui",
-    "test:run": "vitest run",
+    "test": "vitest test/mememo.test.ts",
+    "test:browser": "vitest -c vitest.config.browser.ts test/mememo.browser.test.ts",
+    "test:run": "vitest run test/mememo.test.ts && test:run:browser",
+    "test:run:browser": "vitest run -c vitest.config.browser.ts test/mememo.browser.test.ts",
     "coverage": "vitest run --coverage && c8 report && pnpm run coverage:badge",
     "coverage:badge": "pnpx make-coverage-badge --output-path ./imgs/coverage-badge.svg",
     "build": "pnpm run clean && vite build",
