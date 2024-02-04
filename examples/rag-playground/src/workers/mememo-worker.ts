@@ -64,6 +64,11 @@ const flexIndex: Flexsearch.Index = new Flexsearch.Index({
 }) as Flexsearch.Index;
 let workerDatasetName = 'my-dataset';
 let documentDBPromise: Promise<IDBPDatabase<string>> | null = null;
+const hnswIndex = new HNSW<string>({
+  distanceFunction: 'cosine',
+  seed: 123,
+  useIndexedDB: false
+});
 
 //==========================================================================||
 //                                Functions                                 ||
@@ -86,7 +91,10 @@ self.onmessage = (e: MessageEvent<MememoWorkerMessage>) => {
 
     case 'startLexicalSearch': {
       const { query, limit, requestID } = e.data.payload;
-      searchPoint(query, limit, requestID);
+      searchPoint(query, limit, requestID).then(
+        () => {},
+        () => {}
+      );
       break;
     }
 
@@ -112,33 +120,36 @@ const startLoadCompressedData = (url: string, datasetName: string) => {
     }
   });
 
-  fetch(url).then(async response => {
-    if (!response.ok) {
-      console.error('Failed to load data', response);
-      return;
-    }
-
-    const reader = response.body
-      ?.pipeThrough(new DecompressionStream('gzip'))
-      ?.pipeThrough(new TextDecoderStream())
-      ?.pipeThrough(splitStreamTransform('\n'))
-      ?.pipeThrough(parseJSONTransform())
-      ?.getReader();
-
-    while (true && reader !== undefined) {
-      const result = await reader.read();
-      const point = result.value as DocumentRecordStreamData;
-      const done = result.done;
-
-      if (done) {
-        timeit('Stream data', DEV_MODE);
-        pointStreamFinished();
-        break;
-      } else {
-        await processPointStream(point);
+  fetch(url).then(
+    async response => {
+      if (!response.ok) {
+        console.error('Failed to load data', response);
+        return;
       }
-    }
-  });
+
+      const reader = response.body
+        ?.pipeThrough(new DecompressionStream('gzip'))
+        ?.pipeThrough(new TextDecoderStream())
+        ?.pipeThrough(splitStreamTransform('\n'))
+        ?.pipeThrough(parseJSONTransform())
+        ?.getReader();
+
+      while (true && reader !== undefined) {
+        const result = await reader.read();
+        const point = result.value as DocumentRecordStreamData;
+        const done = result.done;
+
+        if (done) {
+          timeit('Stream data', DEV_MODE);
+          pointStreamFinished();
+          break;
+        } else {
+          await processPointStream(point);
+        }
+      }
+    },
+    () => {}
+  );
 };
 
 /**
@@ -161,6 +172,8 @@ const processPointStream = async (point: DocumentRecordStreamData) => {
   pendingDataPoints.push(documentPoint);
   flexIndex.add(documentPoint.id, documentPoint.text);
   await documentDB.put(workerDatasetName, documentPoint.text, documentPoint.id);
+  await hnswIndex.insert(String(documentPoint.id), documentPoint.embedding);
+
   loadedPointCount += 1;
 
   // Notify the main thread if we have load enough data
@@ -175,9 +188,9 @@ const processPointStream = async (point: DocumentRecordStreamData) => {
       }
     };
 
-    await new Promise<void>(resolve => {
-      setTimeout(resolve, 100);
-    });
+    // await new Promise<void>(resolve => {
+    //   setTimeout(resolve, 100);
+    // });
 
     postMessage(result);
 
