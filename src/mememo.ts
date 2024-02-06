@@ -692,9 +692,9 @@ export class HNSW {
   }
 
   /**
-   * Insert a new element to the index.
-   * @param key Key of the new element.
-   * @param value The embedding of the new element to insert.
+   * Insert new elements to the index.
+   * @param keys Key of the new elements.
+   * @param values The embeddings of the new elements to insert.
    * @param maxLevel The max layer to insert this element. You don't need to set
    * this value in most cases. We add this parameter for testing purpose.
    */
@@ -735,6 +735,45 @@ export class HNSW {
     // console.log('call times: ', this._distanceFunctionCallTimes - oldCallTimes);
     // console.log('skip times: ', this._distanceFunctionSkipTimes - oldSkipTimes);
     // console.log((this.nodes as NodesInIndexedDB<T>)._prefetchTimes);
+  }
+
+  /**
+   * Insert a new element's embedding to the index. It assumes this element is
+   * already in the index.
+   * @param key Key of the new element.
+   * @param value The embedding of the new element to insert.
+   */
+  async insertSkipIndex(key: string, value: number[]) {
+    // If the key already exists, throw an error
+    if (await this.nodes.has(key)) {
+      throw Error(`There is already a node with key ${key} in the index.`);
+    }
+
+    await this.nodes.set(key, new Node(key, value));
+  }
+
+  /**
+   * Insert new elements' embeddings to the index. It assumes elements are
+   * already in the index.
+   * @param keys Key of the new elements.
+   * @param values The embeddings of the new elements to insert.
+   */
+  async bulkInsertSkipIndex(keys: string[], values: number[][]) {
+    // If the key already exists, throw an error
+    const existingKeys = await this.nodes.keys();
+
+    for (const key of keys) {
+      if (existingKeys.includes(key)) {
+        throw Error(`There is already a node with key ${key} in the index.`);
+      }
+    }
+
+    const newNodes: Node[] = [];
+    for (const [i, key] of keys.entries()) {
+      newNodes.push(new Node(key, values[i]));
+    }
+
+    await this.nodes.bulkSet(keys, newNodes);
   }
 
   /**

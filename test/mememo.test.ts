@@ -386,52 +386,57 @@ describe('markDelete()', () => {
 //                                 query                                    ||
 //==========================================================================||
 
+const createHNSW30201020 = async () => {
+  const hnsw = new HNSW({
+    distanceFunction: 'cosine-normalized',
+    seed: 113082
+  });
+
+  // Insert 50 embeddings
+  const size = 50;
+
+  // The random levels with this seed is [1, 0, 2, 0, 0, 0, 0, 1, 1, 0, 2, 0,
+  // 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0,
+  // 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0]
+  const reportIDs: string[] = [];
+
+  // Insert 30 nodes
+  for (let i = 0; i < 30; i++) {
+    const curReportID = String(embeddingData.reportNumbers[i]);
+    reportIDs.push(curReportID);
+    await hnsw.insert(curReportID, embeddingData.embeddings[i]);
+  }
+
+  // Delete 20 random nodes
+  const deleteIndexes = [
+    7, 12, 4, 14, 20, 27, 5, 21, 2, 19, 10, 15, 24, 6, 3, 0, 22, 8, 11, 1
+  ];
+
+  for (const i of deleteIndexes) {
+    const key = String(embeddingData.reportNumbers[i]);
+    await hnsw.markDeleted(key);
+  }
+
+  // Un-delete 10 random nodes
+  const unDeleteIndexes = [12, 22, 4, 14, 19, 5, 2, 15, 21, 0];
+
+  for (const i of unDeleteIndexes) {
+    const key = String(embeddingData.reportNumbers[i]);
+    await hnsw.unMarkDeleted(key);
+  }
+
+  // Insert the rest 20 nodes
+  for (let i = 30; i < size; i++) {
+    const curReportID = String(embeddingData.reportNumbers[i]);
+    reportIDs.push(curReportID);
+    await hnsw.insert(curReportID, embeddingData.embeddings[i]);
+  }
+  return hnsw;
+};
+
 describe('query()', () => {
   it('query(): 90/50 items, insert 30 => delete 20 => un-delete 10 => insert 20', async () => {
-    const hnsw = new HNSW({
-      distanceFunction: 'cosine-normalized',
-      seed: 113082
-    });
-
-    // Insert 50 embeddings
-    const size = 50;
-
-    // The random levels with this seed is [1, 0, 2, 0, 0, 0, 0, 1, 1, 0, 2, 0,
-    // 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0,
-    // 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0]
-    const reportIDs: string[] = [];
-
-    // Insert 30 nodes
-    for (let i = 0; i < 30; i++) {
-      const curReportID = String(embeddingData.reportNumbers[i]);
-      reportIDs.push(curReportID);
-      await hnsw.insert(curReportID, embeddingData.embeddings[i]);
-    }
-
-    // Delete 20 random nodes
-    const deleteIndexes = [
-      7, 12, 4, 14, 20, 27, 5, 21, 2, 19, 10, 15, 24, 6, 3, 0, 22, 8, 11, 1
-    ];
-
-    for (const i of deleteIndexes) {
-      const key = String(embeddingData.reportNumbers[i]);
-      await hnsw.markDeleted(key);
-    }
-
-    // Un-delete 10 random nodes
-    const unDeleteIndexes = [12, 22, 4, 14, 19, 5, 2, 15, 21, 0];
-
-    for (const i of unDeleteIndexes) {
-      const key = String(embeddingData.reportNumbers[i]);
-      await hnsw.unMarkDeleted(key);
-    }
-
-    // Insert the rest 20 nodes
-    for (let i = 30; i < size; i++) {
-      const curReportID = String(embeddingData.reportNumbers[i]);
-      reportIDs.push(curReportID);
-      await hnsw.insert(curReportID, embeddingData.embeddings[i]);
-    }
+    const hnsw = await createHNSW30201020();
 
     // Check query results
     for (const q of query1) {
@@ -451,56 +456,8 @@ describe('query()', () => {
 
 describe('loadIndex()', () => {
   it('Export and load index', async () => {
-    const createHNSW = async () => {
-      const hnsw = new HNSW({
-        distanceFunction: 'cosine-normalized',
-        seed: 113082
-      });
-
-      // Insert 50 embeddings
-      const size = 50;
-
-      // The random levels with this seed is [1, 0, 2, 0, 0, 0, 0, 1, 1, 0, 2, 0,
-      // 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0,
-      // 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0]
-      const reportIDs: string[] = [];
-
-      // Insert 30 nodes
-      for (let i = 0; i < 30; i++) {
-        const curReportID = String(embeddingData.reportNumbers[i]);
-        reportIDs.push(curReportID);
-        await hnsw.insert(curReportID, embeddingData.embeddings[i]);
-      }
-
-      // Delete 20 random nodes
-      const deleteIndexes = [
-        7, 12, 4, 14, 20, 27, 5, 21, 2, 19, 10, 15, 24, 6, 3, 0, 22, 8, 11, 1
-      ];
-
-      for (const i of deleteIndexes) {
-        const key = String(embeddingData.reportNumbers[i]);
-        await hnsw.markDeleted(key);
-      }
-
-      // Un-delete 10 random nodes
-      const unDeleteIndexes = [12, 22, 4, 14, 19, 5, 2, 15, 21, 0];
-
-      for (const i of unDeleteIndexes) {
-        const key = String(embeddingData.reportNumbers[i]);
-        await hnsw.unMarkDeleted(key);
-      }
-
-      // Insert the rest 20 nodes
-      for (let i = 30; i < size; i++) {
-        const curReportID = String(embeddingData.reportNumbers[i]);
-        reportIDs.push(curReportID);
-        await hnsw.insert(curReportID, embeddingData.embeddings[i]);
-      }
-      return hnsw;
-    };
-
     // Export the index
-    const hnsw1 = await createHNSW();
+    const hnsw1 = await createHNSW30201020();
     const index1 = hnsw1.exportIndex();
 
     // Create a new hnsw using the index json
@@ -514,6 +471,73 @@ describe('loadIndex()', () => {
     const index2 = hnsw2.exportIndex();
 
     expect(JSON.stringify(index1)).toBe(JSON.stringify(index2));
+  });
+
+  it('Export and load index, re-create embeddings', async () => {
+    // Export the index
+    const hnsw1 = await createHNSW30201020();
+    const index1 = hnsw1.exportIndex();
+
+    // Create a new hnsw using the index json
+    const hnsw2 = new HNSW({
+      distanceFunction: 'cosine-normalized',
+      seed: 113082
+    });
+    hnsw2.loadIndex(index1);
+
+    // Insert 50 embeddings
+    const size = 50;
+
+    // The random levels with this seed is [1, 0, 2, 0, 0, 0, 0, 1, 1, 0, 2, 0,
+    // 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0,
+    // 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0]
+    const reportIDs: string[] = [];
+
+    // Insert 30 nodes
+    for (let i = 0; i < 30; i++) {
+      const curReportID = String(embeddingData.reportNumbers[i]);
+      reportIDs.push(curReportID);
+      await hnsw2.insertSkipIndex(curReportID, embeddingData.embeddings[i]);
+    }
+
+    // Delete 20 random nodes
+    const deleteIndexes = [
+      7, 12, 4, 14, 20, 27, 5, 21, 2, 19, 10, 15, 24, 6, 3, 0, 22, 8, 11, 1
+    ];
+
+    for (const i of deleteIndexes) {
+      const key = String(embeddingData.reportNumbers[i]);
+      await hnsw2.markDeleted(key);
+    }
+
+    // Un-delete 10 random nodes
+    const unDeleteIndexes = [12, 22, 4, 14, 19, 5, 2, 15, 21, 0];
+
+    for (const i of unDeleteIndexes) {
+      const key = String(embeddingData.reportNumbers[i]);
+      await hnsw2.unMarkDeleted(key);
+    }
+
+    // Insert the rest 20 nodes
+    for (let i = 30; i < size; i++) {
+      const curReportID = String(embeddingData.reportNumbers[i]);
+      reportIDs.push(curReportID);
+      await hnsw2.insertSkipIndex(curReportID, embeddingData.embeddings[i]);
+    }
+
+    // The export of the new index should be the same as the old index
+    const index2 = hnsw2.exportIndex();
+    expect(JSON.stringify(index1)).toBe(JSON.stringify(index2));
+
+    // Check query results
+    for (const q of query1) {
+      const myResults = await hnsw2.query(embeddingData.embeddings[q.i], q.k);
+      expect(myResults.length).toBe(q.result.length);
+      for (const [i, myResult] of myResults.entries()) {
+        expect(myResult.key).toBe(q.result[i][0]);
+        expect(myResult.distance).toBeCloseTo(q.result[i][1], 4);
+      }
+    }
   });
 });
 
