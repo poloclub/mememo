@@ -79,6 +79,11 @@ export class MememoTextViewer extends LitElement {
     return this.lexicalSearchRequestCount++;
   }
 
+  semanticSearchRequestCount = 0;
+  get semanticSearchRequestID() {
+    return this.semanticSearchRequestCount++;
+  }
+
   //==========================================================================||
   //                             Lifecycle Methods                            ||
   //==========================================================================||
@@ -120,6 +125,25 @@ export class MememoTextViewer extends LitElement {
         url: this.dataURL,
         indexURL: this.indexURL,
         datasetName: this.datasetName
+      }
+    };
+    this.mememoWorker.postMessage(message);
+  }
+
+  /**
+   * Retrieve relevant documents using MeMemo
+   * @param embedding Input embedding
+   * @param topK Top k relevant documents to retrieve
+   * @param maxDistance Distance threshold for relevance
+   */
+  semanticSearch(embedding: number[], topK: number, maxDistance: number) {
+    const message: MememoWorkerMessage = {
+      command: 'startSemanticSearch',
+      payload: {
+        embedding,
+        requestID: this.semanticSearchRequestID,
+        topK,
+        maxDistance
       }
     };
     this.mememoWorker.postMessage(message);
@@ -246,6 +270,17 @@ export class MememoTextViewer extends LitElement {
           this.pendingQuery = null;
         }
 
+        break;
+      }
+
+      case 'finishSemanticSearch': {
+        const { documents, documentDistances, embedding } = e.data.payload;
+
+        // Update the shown documents
+        this.curQuery = null;
+        this.isFiltered = true;
+        this.curDocuments = documents;
+        this.shownDocuments = this.curDocuments.slice(0, this.shownDocumentCap);
         break;
       }
 

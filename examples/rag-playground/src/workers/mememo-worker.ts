@@ -65,6 +65,26 @@ export type MememoWorkerMessage =
       payload: {
         indexJSON: MememoIndexJSON;
       };
+    }
+  | {
+      command: 'startSemanticSearch';
+      payload: {
+        embedding: number[];
+        requestID: number;
+        topK: number;
+        maxDistance: number;
+      };
+    }
+  | {
+      command: 'finishSemanticSearch';
+      payload: {
+        embedding: number[];
+        requestID: number;
+        topK: number;
+        maxDistance: number;
+        documents: string[];
+        documentDistances: number[];
+      };
     };
 
 const DEV_MODE = import.meta.env.DEV;
@@ -80,7 +100,7 @@ const flexIndex: Flexsearch.Index = new Flexsearch.Index({
   tokenize: 'forward'
 }) as Flexsearch.Index;
 
-let documentDBPromise: PromiseExtended<Table<DocumentDBEntry, number>> | null =
+let documentDBPromise: PromiseExtended<Table<DocumentDBEntry, string>> | null =
   null;
 const hnswIndex = new HNSW({
   distanceFunction: 'cosine-normalized',
@@ -131,6 +151,15 @@ self.onmessage = (e: MessageEvent<MememoWorkerMessage>) => {
       break;
     }
 
+    case 'startSemanticSearch': {
+      const { requestID, embedding, topK, maxDistance } = e.data.payload;
+      semanticSearch(embedding, topK, maxDistance, requestID).then(
+        () => {},
+        () => {}
+      );
+      break;
+    }
+
     default: {
       console.error('Worker: unknown message', e.data.command);
       break;
@@ -149,7 +178,7 @@ const startLoadCompressedData = async (url: string, indexURL?: string) => {
   myDexie.version(1).stores({
     mememo: 'id'
   });
-  const db = myDexie.table<DocumentDBEntry, number>('mememo');
+  const db = myDexie.table<DocumentDBEntry, string>('mememo');
   documentDBPromise = db.clear().then(() => db);
 
   // Load the index if the url is given
@@ -214,7 +243,7 @@ const processPointStream = async (
   const documentPoint: DocumentRecord = {
     text: point[0],
     embedding: point[1],
-    id: loadedPointCount
+    id: String(loadedPointCount)
   };
 
   // Index the point in flex
@@ -225,7 +254,7 @@ const processPointStream = async (
 
   if (pendingDataPoints.length >= POINT_THRESHOLD) {
     // Batched index the documents to IndexedDB and MeMemo
-    const keys = pendingDataPoints.map(d => String(d.id));
+    const keys = pendingDataPoints.map(d => d.id);
     const embeddings = pendingDataPoints.map(d => d.embedding);
     const documentEntries: DocumentDBEntry[] = pendingDataPoints.map(d => ({
       id: d.id,
@@ -293,12 +322,12 @@ const searchPoint = async (query: string, limit: number, requestID: number) => {
     throw Error('documentDB is null');
   }
   const documentDB = await documentDBPromise;
-  const resultIndexes = flexIndex.search(query, {
+  const resultIDs = flexIndex.search(query, {
     limit
-  }) as unknown as number[];
+  }) as string[];
 
   // Look up the indexes in indexedDB
-  const results = await documentDB.bulkGet(resultIndexes);
+  const results = await documentDB.bulkGet(resultIDs);
   const documents: string[] = [];
   for (const r of results) {
     if (r !== undefined) {
@@ -312,6 +341,52 @@ const searchPoint = async (query: string, limit: number, requestID: number) => {
       query,
       results: documents,
       requestID
+    }
+  };
+  postMessage(message);
+};
+
+/**
+ * Semantic search relevant documents
+ * @param embedding Query embedding
+ * @param topK Top-k items
+ * @param maxDistance Max distance threshold
+ */
+const semanticSearch = async (
+  embedding: number[],
+  topK: number,
+  maxDistance: number,
+  requestID: number
+) => {
+  if (documentDBPromise === null) {
+    throw Error('documentDB is null');
+  }
+  const documentDB = await documentDBPromise;
+  const queryResults = await hnswIndex.query(embedding, topK);
+
+  const distances = queryResults.map(d => d.distance);
+  const keys = queryResults.map(d => d.key);
+
+  // Batched query documents from indexedDB
+  const results = await documentDB.bulkGet(keys);
+  const documents: string[] = [];
+  const documentDistances: number[] = [];
+
+  for (const [i, r] of results.entries()) {
+    if (r !== undefined && distances[i] <= maxDistance) {
+      documents.push(r.text);
+      documentDistances.push(distances[i]);
+    }
+  }
+  const message: MememoWorkerMessage = {
+    command: 'finishSemanticSearch',
+    payload: {
+      embedding,
+      topK,
+      requestID,
+      maxDistance,
+      documents,
+      documentDistances
     }
   };
   postMessage(message);

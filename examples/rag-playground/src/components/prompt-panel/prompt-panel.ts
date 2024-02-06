@@ -55,14 +55,14 @@ export class MememoPromptPanel extends LitElement {
   //==========================================================================||
   async initData() {}
 
-  getEmbedding() {
+  getEmbedding(sentences: string[]) {
     const message: EmbeddingWorkerMessage = {
       command: 'startExtractEmbedding',
       payload: {
         detail: '',
         requestID: this.embeddingWorkerRequestID,
         model: EmbeddingModel.gteSmall,
-        sentences: ['Hello, how are you']
+        sentences: sentences
       }
     };
     this.embeddingWorker.postMessage(message);

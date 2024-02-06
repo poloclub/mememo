@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 60 66" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+    <g id="icon-play">
+        <path d="M5.846,65.314C7.555,65.314 8.971,64.68 10.631,63.703L54.577,38.41C58.141,36.31 59.313,34.992 59.313,32.795C59.313,30.598 58.141,29.279 54.577,27.18L10.631,1.887C8.971,0.91 7.555,0.275 5.846,0.275C2.77,0.275 0.866,2.668 0.866,6.281L0.866,59.309C0.866,62.922 2.77,65.314 5.846,65.314ZM8.19,56.916C7.994,56.916 7.897,56.818 7.897,56.623L7.897,8.967C7.897,8.771 7.994,8.674 8.19,8.674C8.287,8.674 8.385,8.723 8.532,8.771L49.645,32.551C49.791,32.6 49.84,32.648 49.84,32.795C49.84,32.941 49.791,32.99 49.645,33.039L8.532,56.818C8.385,56.867 8.287,56.916 8.19,56.916Z" style="fill-rule:nonzero;"/>
+    </g>
+</svg>

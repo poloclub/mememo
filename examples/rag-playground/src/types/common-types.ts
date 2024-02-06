@@ -5,13 +5,13 @@
 export type DocumentRecordStreamData = [string, number[]];
 
 export interface DocumentDBEntry {
-  id: number;
+  id: string;
   text: string;
 }
 
 export interface DocumentRecord {
   embedding: number[];
-  id: number;
+  id: string;
   text: string;
 }
 
