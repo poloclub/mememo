@@ -446,6 +446,78 @@ describe('query()', () => {
 });
 
 //==========================================================================||
+//                                 Export                                   ||
+//==========================================================================||
+
+describe('loadIndex()', () => {
+  it('Export and load index', async () => {
+    const createHNSW = async () => {
+      const hnsw = new HNSW({
+        distanceFunction: 'cosine-normalized',
+        seed: 113082
+      });
+
+      // Insert 50 embeddings
+      const size = 50;
+
+      // The random levels with this seed is [1, 0, 2, 0, 0, 0, 0, 1, 1, 0, 2, 0,
+      // 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0,
+      // 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0]
+      const reportIDs: string[] = [];
+
+      // Insert 30 nodes
+      for (let i = 0; i < 30; i++) {
+        const curReportID = String(embeddingData.reportNumbers[i]);
+        reportIDs.push(curReportID);
+        await hnsw.insert(curReportID, embeddingData.embeddings[i]);
+      }
+
+      // Delete 20 random nodes
+      const deleteIndexes = [
+        7, 12, 4, 14, 20, 27, 5, 21, 2, 19, 10, 15, 24, 6, 3, 0, 22, 8, 11, 1
+      ];
+
+      for (const i of deleteIndexes) {
+        const key = String(embeddingData.reportNumbers[i]);
+        await hnsw.markDeleted(key);
+      }
+
+      // Un-delete 10 random nodes
+      const unDeleteIndexes = [12, 22, 4, 14, 19, 5, 2, 15, 21, 0];
+
+      for (const i of unDeleteIndexes) {
+        const key = String(embeddingData.reportNumbers[i]);
+        await hnsw.unMarkDeleted(key);
+      }
+
+      // Insert the rest 20 nodes
+      for (let i = 30; i < size; i++) {
+        const curReportID = String(embeddingData.reportNumbers[i]);
+        reportIDs.push(curReportID);
+        await hnsw.insert(curReportID, embeddingData.embeddings[i]);
+      }
+      return hnsw;
+    };
+
+    // Export the index
+    const hnsw1 = await createHNSW();
+    const index1 = hnsw1.exportIndex();
+
+    // Create a new hnsw using the index json
+    const hnsw2 = new HNSW({
+      distanceFunction: 'cosine-normalized',
+      seed: 113082
+    });
+    hnsw2.loadIndex(index1);
+
+    // The export of the new index should be the same as the old index
+    const index2 = hnsw2.exportIndex();
+
+    expect(JSON.stringify(index1)).toBe(JSON.stringify(index2));
+  });
+});
+
+//==========================================================================||
 //                          Helper Functions                                ||
 //==========================================================================||
 

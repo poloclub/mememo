@@ -16,6 +16,19 @@ interface SearchNodeCandidate {
   distance: number;
 }
 
+export interface MememoIndexJSON {
+  distanceFunctionType: BuiltInDistanceFunction | 'custom';
+  m: number;
+  efConstruction: number;
+  mMax0: number;
+  ml: number;
+  seed: number;
+  useIndexedDB: boolean;
+  useDistanceCache: boolean;
+  entryPointKey: string | null;
+  graphLayers: Record<string, Record<string, number>>[];
+}
+
 // Built-in distance functions
 const DISTANCE_FUNCTIONS: Record<
   BuiltInDistanceFunction,
@@ -46,6 +59,9 @@ interface HNSWConfig {
     | 'cosine'
     | 'cosine-normalized'
     | ((a: number[], b: number[]) => number);
+
+  /** Number of decimals to store for node distances. Default: 6 */
+  distancePrecision?: number;
 
   /** The max number of neighbors for each node. A reasonable range of m is from
    * 5 to 48. Smaller m generally produces better results for lower recalls
@@ -404,7 +420,7 @@ class GraphLayer {
     this.graph.set(key, new Map<string, number>());
   }
 
-  serializeToJSON() {
+  toJSON() {
     const graph: Record<string, Record<string, number>> = {};
 
     // Convert the map into a serializable record
@@ -450,6 +466,7 @@ export class HNSW {
   _distanceFunctionCallTimes = 0;
   _distanceFunctionSkipTimes = 0;
   useDistanceCache = false;
+  distancePrecision = 6;
 
   /** The max number of neighbors for each node. */
   m: number;
@@ -493,6 +510,7 @@ export class HNSW {
    * @param config.ml - Normalizer parameter. Default 1 / ln(m)
    * @param config.seed - Optional random seed.
    * @param config.useIndexedDB - Whether to use indexedDB
+   * @param config.distancePrecision - How many decimals to store for distances
    */
   constructor({
     distanceFunction,
@@ -501,38 +519,36 @@ export class HNSW {
     mMax0,
     ml,
     seed,
-    useIndexedDB
+    useIndexedDB,
+    distancePrecision
   }: HNSWConfig) {
     // Initialize HNSW parameters
     this.m = m || 16;
     this.efConstruction = efConstruction || 100;
     this.mMax0 = mMax0 || this.m * 2;
     this.ml = ml || 1 / Math.log(this.m);
+    this.seed = seed || randomUniform()();
+    this.distancePrecision = distancePrecision || 6;
 
-    if (seed) {
-      this.seed = seed;
-    } else {
-      this.seed = randomUniform()();
-    }
     this.rng = randomLcg(this.seed);
 
     // Set the distance function type
-    let usedDistanceFunction = DISTANCE_FUNCTIONS['cosine-normalized'];
+    let _distanceFunction = DISTANCE_FUNCTIONS['cosine-normalized'];
     this.distanceFunctionType = 'cosine-normalized';
 
     if (distanceFunction === undefined) {
-      usedDistanceFunction = DISTANCE_FUNCTIONS['cosine-normalized'];
+      _distanceFunction = DISTANCE_FUNCTIONS['cosine-normalized'];
       this.distanceFunctionType = 'cosine-normalized';
     } else {
       if (typeof distanceFunction === 'string') {
-        usedDistanceFunction = DISTANCE_FUNCTIONS[distanceFunction];
+        _distanceFunction = DISTANCE_FUNCTIONS[distanceFunction];
         if (distanceFunction === 'cosine-normalized') {
           this.distanceFunctionType = 'cosine-normalized';
         } else if (distanceFunction === 'cosine') {
           this.distanceFunctionType = 'cosine';
         }
       } else {
-        usedDistanceFunction = distanceFunction;
+        _distanceFunction = distanceFunction;
         this.distanceFunctionType = 'custom';
       }
     }
@@ -564,7 +580,8 @@ export class HNSW {
     ) => {
       if (!this.useDistanceCache || aKey === null || bKey === null) {
         this._distanceFunctionCallTimes += 1;
-        return usedDistanceFunction(a, b);
+        const distance = round(_distanceFunction(a, b), this.distancePrecision);
+        return distance;
       }
 
       // Try two different key combinations
@@ -582,7 +599,7 @@ export class HNSW {
       }
 
       // Fallback
-      const distance = usedDistanceFunction(a, b);
+      const distance = round(_distanceFunction(a, b), this.distancePrecision);
       this._distanceFunctionCallTimes += 1;
       return distance;
     };
@@ -592,16 +609,50 @@ export class HNSW {
    * Serialize the index into a JSON string
    */
   exportIndex() {
-    const mememoIndex = {
-      distanceFunctionTyle: this.distanceFunctionType,
+    const graphLayers: Record<string, Record<string, number>>[] =
+      this.graphLayers.map(d => d.toJSON());
+
+    const mememoIndex: MememoIndexJSON = {
+      distanceFunctionType: this.distanceFunctionType,
       m: this.m,
       efConstruction: this.efConstruction,
       mMax0: this.mMax0,
       ml: this.ml,
       seed: this.seed,
       useIndexedDB: this.useIndexedDB,
-      useDistanceCache: this.useDistanceCache
+      useDistanceCache: this.useDistanceCache,
+      entryPointKey: this.entryPointKey,
+      graphLayers: graphLayers
     };
+
+    return mememoIndex;
+  }
+
+  /**
+   * Load HNSW index from a JSON object. Note that the nodes' embeddings ARE NOT
+   * loaded. You need to call insertSkipIndexing() to insert node embeddings
+   * AFTER this call.
+   * @param mememoIndex JSON format of the created index
+   */
+  loadIndex(mememoIndex: MememoIndexJSON) {
+    this.distanceFunctionType = mememoIndex.distanceFunctionType;
+    this.m = mememoIndex.m;
+    this.efConstruction = mememoIndex.efConstruction;
+    this.mMax0 = mememoIndex.mMax0;
+    this.ml = mememoIndex.ml;
+    this.seed = mememoIndex.seed;
+    this.useIndexedDB = mememoIndex.useIndexedDB;
+    this.useDistanceCache = mememoIndex.useDistanceCache;
+    this.entryPointKey = mememoIndex.entryPointKey;
+
+    // Load the graph layers
+    this.graphLayers = [];
+
+    for (const graphJSON of mememoIndex.graphLayers) {
+      const graphLayer = new GraphLayer('');
+      graphLayer.loadJSON(graphJSON);
+      this.graphLayers.push(graphLayer);
+    }
   }
 
   /**
@@ -1405,3 +1456,13 @@ export class HNSW {
     return node;
   }
 }
+
+/**
+ * Round a number to a given decimal.
+ * @param {number} num Number to round
+ * @param {number} decimal Decimal place
+ * @returns number
+ */
+export const round = (num: number, decimal: number) => {
+  return Math.round((num + Number.EPSILON) * 10 ** decimal) / 10 ** decimal;
+};

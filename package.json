@@ -54,6 +54,7 @@
     "@typescript-eslint/parser": "^6.19.1",
     "@vitest/browser": "^1.2.1",
     "@vitest/coverage-v8": "^1.2.1",
+    "@xiaohk/utils": "^0.0.6",
     "c8": "^9.1.0",
     "d3-random": "^3.0.1",
     "dexie": "^3.2.4",
