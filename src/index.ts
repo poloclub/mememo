@@ -1,1 +1,1 @@
-export { HNSW } from './mememo';
+export * from './mememo';

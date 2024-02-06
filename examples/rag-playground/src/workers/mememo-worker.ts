@@ -1,4 +1,5 @@
 import { HNSW } from '../../../../src/index';
+import type { MememoIndexJSON } from '../../../../src/index';
 import type {
   DocumentRecord,
   DocumentDBEntry,
@@ -23,6 +24,8 @@ export type MememoWorkerMessage =
       payload: {
         /** NDJSON data url */
         url: string;
+        /** Index json url */
+        indexURL?: string;
         datasetName: string;
       };
     }
@@ -50,6 +53,18 @@ export type MememoWorkerMessage =
         requestID: number;
         results: string[];
       };
+    }
+  | {
+      command: 'startExportIndex';
+      payload: {
+        requestID: number;
+      };
+    }
+  | {
+      command: 'finishExportIndex';
+      payload: {
+        indexJSON: MememoIndexJSON;
+      };
     };
 
 const DEV_MODE = import.meta.env.DEV;
@@ -64,10 +79,10 @@ let lastDrawnPoints: DocumentRecord[] | null = null;
 const flexIndex: Flexsearch.Index = new Flexsearch.Index({
   tokenize: 'forward'
 }) as Flexsearch.Index;
-let workerDatasetName = 'my-dataset';
+
 let documentDBPromise: PromiseExtended<Table<DocumentDBEntry, number>> | null =
   null;
-const hnswIndex = new HNSW<string>({
+const hnswIndex = new HNSW({
   distanceFunction: 'cosine-normalized',
   seed: 123,
   useIndexedDB: true
@@ -87,8 +102,11 @@ self.onmessage = (e: MessageEvent<MememoWorkerMessage>) => {
     case 'startLoadData': {
       console.log('Worker: start streaming data');
       timeit('Stream data', true);
-      const { url, datasetName } = e.data.payload;
-      startLoadCompressedData(url, datasetName);
+      const { url, indexURL } = e.data.payload;
+      startLoadCompressedData(url, indexURL).then(
+        () => {},
+        () => {}
+      );
       break;
     }
 
@@ -98,6 +116,18 @@ self.onmessage = (e: MessageEvent<MememoWorkerMessage>) => {
         () => {},
         () => {}
       );
+      break;
+    }
+
+    case 'startExportIndex': {
+      const indexJSON = hnswIndex.exportIndex();
+      const message: MememoWorkerMessage = {
+        command: 'finishExportIndex',
+        payload: {
+          indexJSON: indexJSON
+        }
+      };
+      postMessage(message);
       break;
     }
 
@@ -113,10 +143,7 @@ self.onmessage = (e: MessageEvent<MememoWorkerMessage>) => {
  * @param url URL to the zipped NDJSON file
  * @param datasetName Name of the dataset
  */
-const startLoadCompressedData = (url: string, datasetName: string) => {
-  // Update the indexed db store reference
-  workerDatasetName = datasetName;
-
+const startLoadCompressedData = async (url: string, indexURL?: string) => {
   // Create a new store, clear content from previous sessions
   const myDexie = new Dexie('mememo-document-store');
   myDexie.version(1).stores({
@@ -124,6 +151,20 @@ const startLoadCompressedData = (url: string, datasetName: string) => {
   });
   const db = myDexie.table<DocumentDBEntry, number>('mememo');
   documentDBPromise = db.clear().then(() => db);
+
+  // Load the index if the url is given
+  let skipIndex = false;
+  if (indexURL !== undefined) {
+    try {
+      const indexJSON = (await (
+        await fetch(indexURL)
+      ).json()) as MememoIndexJSON;
+      hnswIndex.loadIndex(indexJSON);
+      skipIndex = true;
+    } catch (error) {
+      console.error(error);
+    }
+  }
 
   fetch(url).then(
     async response => {
@@ -149,7 +190,7 @@ const startLoadCompressedData = (url: string, datasetName: string) => {
           pointStreamFinished();
           break;
         } else {
-          await processPointStream(point);
+          await processPointStream(point, skipIndex);
         }
       }
     },
@@ -161,7 +202,10 @@ const startLoadCompressedData = (url: string, datasetName: string) => {
  * Process one data point
  * @param point Loaded data point
  */
-const processPointStream = async (point: DocumentRecordStreamData) => {
+const processPointStream = async (
+  point: DocumentRecordStreamData,
+  skipIndex: boolean
+) => {
   if (documentDBPromise === null) {
     throw Error('documentDB is null');
   }
@@ -189,7 +233,12 @@ const processPointStream = async (point: DocumentRecordStreamData) => {
     }));
 
     await documentDB.bulkPut(documentEntries);
-    await hnswIndex.bulkInsert(keys, embeddings);
+
+    if (skipIndex) {
+      await hnswIndex.bulkInsertSkipIndex(keys, embeddings);
+    } else {
+      await hnswIndex.bulkInsert(keys, embeddings);
+    }
 
     // Notify the main thread if we have load enough data
     const result: MememoWorkerMessage = {

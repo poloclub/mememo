@@ -2,6 +2,7 @@ import { LitElement, css, unsafeCSS, html, PropertyValues } from 'lit';
 import { customElement, property, state, query } from 'lit/decorators.js';
 import { unsafeHTML, UnsafeHTMLDirective } from 'lit/directives/unsafe-html.js';
 import { DirectiveResult } from 'lit/directive.js';
+import { downloadJSON } from '@xiaohk/utils';
 import d3 from '../../utils/d3-import';
 
 import type { MememoWorkerMessage } from '../../workers/mememo-worker';
@@ -28,6 +29,9 @@ export class MememoTextViewer extends LitElement {
   //==========================================================================||
   @property({ type: String })
   dataURL: string | undefined;
+
+  @property({ type: String })
+  indexURL: string | undefined;
 
   @property({ type: String })
   datasetName = 'my-dataset';
@@ -114,6 +118,7 @@ export class MememoTextViewer extends LitElement {
       command: 'startLoadData',
       payload: {
         url: this.dataURL,
+        indexURL: this.indexURL,
         datasetName: this.datasetName
       }
     };
@@ -207,6 +212,13 @@ export class MememoTextViewer extends LitElement {
           // Mark the loading has completed
           this.markMememoFinishedLoading();
           this.isMememoFinishedLoading = true;
+
+          // Export the index to a json file
+          // const message: MememoWorkerMessage = {
+          //   command: 'startExportIndex',
+          //   payload: { requestID: 0 }
+          // };
+          // this.mememoWorker.postMessage(message);
         }
         break;
       }
@@ -234,6 +246,12 @@ export class MememoTextViewer extends LitElement {
           this.pendingQuery = null;
         }
 
+        break;
+      }
+
+      case 'finishExportIndex': {
+        const indexJSON = e.data.payload.indexJSON;
+        downloadJSON(indexJSON, undefined, 'index.json');
         break;
       }
 
