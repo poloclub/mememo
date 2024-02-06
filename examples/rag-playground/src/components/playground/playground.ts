@@ -6,10 +6,12 @@ import type { EmbeddingWorkerMessage } from '../../workers/embedding';
 import type { MememoTextViewer } from '../text-viewer/text-viewer';
 
 import '../query-box/query-box';
+import '../prompt-box/prompt-box';
 import '../text-viewer/text-viewer';
 
 import componentCSS from './playground.css?inline';
 import EmbeddingWorkerInline from '../../workers/embedding?worker&inline';
+import promptTemplatesJSON from '../../config/promptTemplates.json';
 
 interface DatasetInfo {
   dataURL: string;
@@ -21,6 +23,8 @@ interface DatasetInfo {
 enum Dataset {
   Arxiv = 'arxiv'
 }
+
+const promptTemplate = promptTemplatesJSON as Record<Dataset, string>;
 
 const datasets: Record<Dataset, DatasetInfo> = {
   [Dataset.Arxiv]: {
@@ -40,7 +44,12 @@ export class MememoPlayground extends LitElement {
   //==========================================================================||
   //                              Class Properties                            ||
   //==========================================================================||
+  @state()
   userQuery = '';
+
+  @state()
+  relevantDocuments: string[] = [];
+
   embeddingWorker: Worker;
   embeddingWorkerRequestCount = 0;
   get embeddingWorkerRequestID() {
@@ -127,6 +136,10 @@ export class MememoPlayground extends LitElement {
     this.getEmbedding([this.userQuery]);
   }
 
+  semanticSearchFinishedHandler(e: CustomEvent<string[]>) {
+    this.relevantDocuments = e.detail;
+  }
+
   embeddingWorkerMessageHandler(e: MessageEvent<EmbeddingWorkerMessage>) {
     switch (e.data.command) {
       case 'finishExtractEmbedding': {
@@ -175,10 +188,19 @@ export class MememoPlayground extends LitElement {
             indexURL=${datasets['arxiv'].indexURL}
             datasetName=${datasets['arxiv'].datasetName}
             datasetNameDisplay=${datasets['arxiv'].datasetNameDisplay}
+            @semanticSearchFinished=${(e: CustomEvent<string[]>) =>
+              this.semanticSearchFinishedHandler(e)}
           ></mememo-text-viewer>
         </div>
 
-        <div class="container container-prompt">Prompt</div>
+        <div class="container container-prompt">
+          <mememo-prompt-box
+            template=${promptTemplate[Dataset.Arxiv]}
+            userQuery=${this.userQuery}
+            .relevantDocuments=${this.relevantDocuments}
+            @runButtonClicked=${(e: CustomEvent<string>) => {}}
+          ></mememo-prompt-box>
+        </div>
 
         <div class="container container-model">
           <div class="model-box">GPT 3.5</div>

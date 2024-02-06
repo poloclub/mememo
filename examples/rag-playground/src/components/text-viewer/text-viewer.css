@@ -243,12 +243,14 @@
       top: 0px;
       right: 0px;
       /* transform: translate(0, -50%); */
+      /* float: right; */
 
       font-size: var(--font-d3);
       font-variant-numeric: tabular-nums;
       padding: 2px 5px;
       border-bottom-left-radius: 4px;
       /* border-top-left-radius: 5px; */
+      /* border-radius: 5px; */
       text-align: right;
 
       background-color: color-mix(in lab, var(--blue-100) 70%, transparent 30%);

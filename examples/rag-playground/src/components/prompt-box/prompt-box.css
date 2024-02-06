@@ -1,4 +1,4 @@
-.query-box {
+.prompt-box {
   width: 100%;
 
   display: flex;
@@ -44,8 +44,28 @@ textarea {
   align-items: center;
   gap: 12px;
 
+  .text-group {
+    display: flex;
+    gap: 7px;
+    align-items: baseline;
+    overflow: hidden;
+  }
+
   .text {
     font-weight: 800;
+    white-space: nowrap;
+  }
+
+  .token-count {
+    font-size: var(--font-d2);
+    color: var(--gray-600);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    &[is-oversized] {
+      color: var(--pink-500);
+    }
   }
 }
 

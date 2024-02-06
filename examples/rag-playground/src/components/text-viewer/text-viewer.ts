@@ -291,6 +291,14 @@ export class MememoTextViewer extends LitElement {
           0,
           this.shownDocumentCap
         );
+
+        // Send the documents back to the parent
+        const event = new CustomEvent<string[]>('semanticSearchFinished', {
+          bubbles: true,
+          composed: true,
+          detail: documents
+        });
+        this.dispatchEvent(event);
         break;
       }
 
@@ -370,7 +378,6 @@ export class MememoTextViewer extends LitElement {
             }
           }}
         >
-          ${itemText}
           <span
             class="distance-overlay"
             ?is-hidden=${!this.isFiltered || this.curQuery !== null}
@@ -378,6 +385,7 @@ export class MememoTextViewer extends LitElement {
               ? round(this.shownDocumentDistances[i], 4)
               : ''}</span
           >
+          ${itemText}
         </div> `;
     }
 

@@ -33,6 +33,7 @@
     "eslint-plugin-wc": "^2.0.4",
     "flexsearch": "^0.7.43",
     "gh-pages": "^6.1.1",
+    "gpt-tokenizer": "^2.1.2",
     "lit": "^3.1.2",
     "prettier": "^3.2.4",
     "typescript": "^5.3.3",
