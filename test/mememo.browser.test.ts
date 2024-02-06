@@ -250,7 +250,7 @@ describe('insert()', () => {
 //                                 Update                                   ||
 //==========================================================================||
 
-describe.skip('update()', () => {
+describe('update()', () => {
   it('update() 10 / 50 items', async () => {
     const hnsw = new HNSW({
       distanceFunction: 'cosine',
@@ -265,11 +265,14 @@ describe.skip('update()', () => {
     // 1, 1, 0, 0, 1, 0, 0, 2, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     // 0, 0, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0 ]
     const reportIDs: string[] = [];
+    const embeddings: number[][] = [];
     for (let i = 0; i < size; i++) {
       const curReportID = String(embeddingData.reportNumbers[i]);
       reportIDs.push(curReportID);
-      await hnsw.insert(curReportID, embeddingData.embeddings[i]);
+      embeddings.push(embeddingData.embeddings[i]);
     }
+
+    await hnsw.bulkInsert(reportIDs, embeddings);
 
     // Update 10 nodes
     const updateIndexes = [
@@ -300,7 +303,7 @@ describe.skip('update()', () => {
 //                                 Delete                                   ||
 //==========================================================================||
 
-describe.skip('markDelete()', () => {
+describe('markDelete()', () => {
   it('markDelete(): insert 30 => delete 20 => insert 20', async () => {
     const hnsw = new HNSW({
       distanceFunction: 'cosine',
@@ -314,14 +317,15 @@ describe.skip('markDelete()', () => {
     // The random levels with this seed is [1, 0, 2, 0, 0, 0, 0, 1, 1, 0, 2, 0,
     // 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0,
     // 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0]
-    const reportIDs: string[] = [];
-
-    // Insert 30 nodes
+    let reportIDs: string[] = [];
+    let embeddings: number[][] = [];
     for (let i = 0; i < 30; i++) {
       const curReportID = String(embeddingData.reportNumbers[i]);
       reportIDs.push(curReportID);
-      await hnsw.insert(curReportID, embeddingData.embeddings[i]);
+      embeddings.push(embeddingData.embeddings[i]);
     }
+
+    await hnsw.bulkInsert(reportIDs, embeddings);
 
     // Delete 30 random nodes
     const deleteIndexes = [
@@ -334,11 +338,15 @@ describe.skip('markDelete()', () => {
     }
 
     // Insert the rest 20 nodes
+    reportIDs = [];
+    embeddings = [];
     for (let i = 30; i < size; i++) {
       const curReportID = String(embeddingData.reportNumbers[i]);
       reportIDs.push(curReportID);
-      await hnsw.insert(curReportID, embeddingData.embeddings[i]);
+      embeddings.push(embeddingData.embeddings[i]);
     }
+
+    await hnsw.bulkInsert(reportIDs, embeddings);
 
     expect(hnsw.graphLayers.length).toBe(2);
     _checkGraphLayers(reportIDs, hnsw, graph50Delete1);
@@ -357,14 +365,16 @@ describe.skip('markDelete()', () => {
     // The random levels with this seed is [1, 0, 2, 0, 0, 0, 0, 1, 1, 0, 2, 0,
     // 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0,
     // 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0]
-    const reportIDs: string[] = [];
 
     // Insert 30 nodes
+    let reportIDs: string[] = [];
+    let embeddings: number[][] = [];
     for (let i = 0; i < 30; i++) {
       const curReportID = String(embeddingData.reportNumbers[i]);
       reportIDs.push(curReportID);
-      await hnsw.insert(curReportID, embeddingData.embeddings[i]);
+      embeddings.push(embeddingData.embeddings[i]);
     }
+    await hnsw.bulkInsert(reportIDs, embeddings);
 
     // Delete 20 random nodes
     const deleteIndexes = [
@@ -385,11 +395,14 @@ describe.skip('markDelete()', () => {
     }
 
     // Insert the rest 20 nodes
+    reportIDs = [];
+    embeddings = [];
     for (let i = 30; i < size; i++) {
       const curReportID = String(embeddingData.reportNumbers[i]);
       reportIDs.push(curReportID);
-      await hnsw.insert(curReportID, embeddingData.embeddings[i]);
+      embeddings.push(embeddingData.embeddings[i]);
     }
+    await hnsw.bulkInsert(reportIDs, embeddings);
 
     expect(hnsw.graphLayers.length).toBe(2);
     // graph50Delete2 is actually the same as graph50Delete1
@@ -401,7 +414,7 @@ describe.skip('markDelete()', () => {
 //                                 query                                    ||
 //==========================================================================||
 
-describe.skip('query()', () => {
+describe('query()', () => {
   it('query(): 90/50 items, insert 30 => delete 20 => un-delete 10 => insert 20', async () => {
     const hnsw = new HNSW({
       distanceFunction: 'cosine',
@@ -415,14 +428,16 @@ describe.skip('query()', () => {
     // The random levels with this seed is [1, 0, 2, 0, 0, 0, 0, 1, 1, 0, 2, 0,
     // 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0,
     // 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0]
-    const reportIDs: string[] = [];
 
     // Insert 30 nodes
+    let reportIDs: string[] = [];
+    let embeddings: number[][] = [];
     for (let i = 0; i < 30; i++) {
       const curReportID = String(embeddingData.reportNumbers[i]);
       reportIDs.push(curReportID);
-      await hnsw.insert(curReportID, embeddingData.embeddings[i]);
+      embeddings.push(embeddingData.embeddings[i]);
     }
+    await hnsw.bulkInsert(reportIDs, embeddings);
 
     // Delete 20 random nodes
     const deleteIndexes = [
@@ -443,11 +458,14 @@ describe.skip('query()', () => {
     }
 
     // Insert the rest 20 nodes
+    reportIDs = [];
+    embeddings = [];
     for (let i = 30; i < size; i++) {
       const curReportID = String(embeddingData.reportNumbers[i]);
       reportIDs.push(curReportID);
-      await hnsw.insert(curReportID, embeddingData.embeddings[i]);
+      embeddings.push(embeddingData.embeddings[i]);
     }
+    await hnsw.bulkInsert(reportIDs, embeddings);
 
     // Check query results
     for (const q of query1) {
