@@ -76,7 +76,7 @@ const _checkGraphLayers = (
 describe('constructor', () => {
   it('constructor', () => {
     const hnsw = new HNSW({
-      distanceFunction: 'cosine',
+      distanceFunction: 'cosine-normalized',
       efConstruction: 100,
       m: 16
     });
@@ -90,7 +90,7 @@ describe('constructor', () => {
 describe('insert()', () => {
   it('insert() 10 items, 1 layer', async () => {
     const hnsw = new HNSW({
-      distanceFunction: 'cosine',
+      distanceFunction: 'cosine-normalized',
       seed: 20240101
     });
 
@@ -112,7 +112,7 @@ describe('insert()', () => {
 
   it('insert() 10 items, 2 layer', async () => {
     const hnsw = new HNSW({
-      distanceFunction: 'cosine',
+      distanceFunction: 'cosine-normalized',
       seed: 10
     });
 
@@ -133,7 +133,7 @@ describe('insert()', () => {
 
   it('insert() 30 items, 3 layer', async () => {
     const hnsw = new HNSW({
-      distanceFunction: 'cosine',
+      distanceFunction: 'cosine-normalized',
       seed: 262
     });
 
@@ -155,7 +155,7 @@ describe('insert()', () => {
 
   it('insert() 100 items, 6 layer', async () => {
     const hnsw = new HNSW({
-      distanceFunction: 'cosine',
+      distanceFunction: 'cosine-normalized',
       seed: 11906
     });
 
@@ -180,7 +180,7 @@ describe('insert()', () => {
 
   it('insert() 100 items, 3 layer, m=3', async () => {
     const hnsw = new HNSW({
-      distanceFunction: 'cosine',
+      distanceFunction: 'cosine-normalized',
       seed: 21574,
       m: 3
     });
@@ -241,7 +241,7 @@ describe('insert()', () => {
 describe('update()', () => {
   it('update() 10 / 50 items', async () => {
     const hnsw = new HNSW({
-      distanceFunction: 'cosine',
+      distanceFunction: 'cosine-normalized',
       seed: 65975
     });
 
@@ -290,7 +290,7 @@ describe('update()', () => {
 describe('markDelete()', () => {
   it('markDelete(): insert 30 => delete 20 => insert 20', async () => {
     const hnsw = new HNSW({
-      distanceFunction: 'cosine',
+      distanceFunction: 'cosine-normalized',
       seed: 113082
     });
 
@@ -332,7 +332,7 @@ describe('markDelete()', () => {
 
   it('markDelete(): insert 30 => delete 20 => un-delete 10 => insert 20', async () => {
     const hnsw = new HNSW({
-      distanceFunction: 'cosine',
+      distanceFunction: 'cosine-normalized',
       seed: 113082
     });
 
@@ -389,7 +389,7 @@ describe('markDelete()', () => {
 describe('query()', () => {
   it('query(): 90/50 items, insert 30 => delete 20 => un-delete 10 => insert 20', async () => {
     const hnsw = new HNSW({
-      distanceFunction: 'cosine',
+      distanceFunction: 'cosine-normalized',
       seed: 113082
     });
 
@@ -452,7 +452,7 @@ describe('query()', () => {
 describe('_getRandomLevel()', () => {
   it('_getRandomLevel()', () => {
     const hnsw = new HNSW({
-      distanceFunction: 'cosine',
+      distanceFunction: 'cosine-normalized',
       seed: 20240101
     });
 
@@ -488,7 +488,10 @@ describe('Distance functions', () => {
     const a = [0.44819598, 0.26875241, 0.02164449, 0.33802939, 0.2482019];
     const b = [0.99448402, 0.29269615, 0.98586198, 0.57482737, 0.12994758];
 
-    expect(hnsw.distanceFunction(a, b)).closeTo(0.2554613725418178, 1e-6);
+    expect(hnsw.distanceFunction(a, b, null, null)).closeTo(
+      0.2554613725418178,
+      1e-6
+    );
   });
 
   it('Distance function (cosine-normalized)', () => {
@@ -499,7 +502,10 @@ describe('Distance functions', () => {
     const a = [0.3448653, 0.4612705, 0.79191367, 0.057099, 0.19470466];
     const b = [0.39233533, 0.37618326, 0.12894695, 0.50411272, 0.65863662];
 
-    expect(hnsw.distanceFunction(a, b)).closeTo(0.43203611706139833, 1e-6);
+    expect(hnsw.distanceFunction(a, b, null, null)).closeTo(
+      0.43203611706139833,
+      1e-6
+    );
   });
 
   it('Distance function (custom)', () => {
@@ -517,6 +523,9 @@ describe('Distance functions', () => {
     const a = [0.44819598, 0.26875241, 0.02164449, 0.33802939, 0.2482019];
     const b = [0.99448402, 0.29269615, 0.98586198, 0.57482737, 0.12994758];
 
-    expect(hnsw.distanceFunction(a, b)).closeTo(1.8895015711439895, 1e-6);
+    expect(hnsw.distanceFunction(a, b, null, null)).closeTo(
+      1.8895015711439895,
+      1e-6
+    );
   });
 });
