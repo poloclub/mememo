@@ -172,7 +172,7 @@ class NodesInIndexedDB<T extends IDBValidKey> {
     } else {
       // The size will be set when the user gives an embedding for the
       // first time, so we know the embedding dimension
-      this.prefetchSize = 10000;
+      this.prefetchSize = 8000;
       this.hasSetPrefetchSize = false;
     }
 
@@ -253,14 +253,15 @@ class NodesInIndexedDB<T extends IDBValidKey> {
   /**
    * Automatically update the prefetch size based on the size of embeddings.
    * The goal is to control the memory usage under 50MB.
-   * 50MB ~= 6.25M numbers (8 bytes) ~= 16k 384-dim arrays
+   * 50MB ~= 6.25M numbers (8 bytes) ~= 8k 768-dim arrays
    */
   _updateAutoPrefetchSize(embeddingDim: number) {
     if (!this.hasSetPrefetchSize) {
       const targetMemory = 50e6;
-      const numFloats = targetMemory / 8;
+      const numFloats = Math.floor(targetMemory / 8);
       this.prefetchSize = Math.floor(numFloats / embeddingDim);
       this.hasSetPrefetchSize = true;
+      console.log(this.prefetchSize);
     }
   }
 
