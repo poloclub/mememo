@@ -2,7 +2,7 @@ import { LitElement, css, unsafeCSS, html, PropertyValues } from 'lit';
 import { customElement, property, state, query } from 'lit/decorators.js';
 import { unsafeHTML, UnsafeHTMLDirective } from 'lit/directives/unsafe-html.js';
 import { DirectiveResult } from 'lit/directive.js';
-import { downloadJSON } from '@xiaohk/utils';
+import { downloadJSON, round } from '@xiaohk/utils';
 import d3 from '../../utils/d3-import';
 
 import type { MememoWorkerMessage } from '../../workers/mememo-worker';
@@ -55,6 +55,9 @@ export class MememoTextViewer extends LitElement {
   shownDocuments: string[] = [];
 
   @state()
+  shownDocumentDistances: number[] = [];
+
+  @state()
   isFiltered = false;
 
   @state()
@@ -65,6 +68,8 @@ export class MememoTextViewer extends LitElement {
 
   isSearching = false;
   pendingQuery: string | null = null;
+
+  @state()
   curQuery: string | null = null;
 
   mememoWorker: Worker;
@@ -280,7 +285,12 @@ export class MememoTextViewer extends LitElement {
         this.curQuery = null;
         this.isFiltered = true;
         this.curDocuments = documents;
+        this.showSearchBarCancelButton = true;
         this.shownDocuments = this.curDocuments.slice(0, this.shownDocumentCap);
+        this.shownDocumentDistances = documentDistances.slice(
+          0,
+          this.shownDocumentCap
+        );
         break;
       }
 
@@ -361,6 +371,13 @@ export class MememoTextViewer extends LitElement {
           }}
         >
           ${itemText}
+          <span
+            class="distance-overlay"
+            ?is-hidden=${!this.isFiltered || this.curQuery !== null}
+            >${i < this.shownDocumentDistances.length
+              ? round(this.shownDocumentDistances[i], 4)
+              : ''}</span
+          >
         </div> `;
     }
 
@@ -383,13 +400,18 @@ export class MememoTextViewer extends LitElement {
     </div>`;
 
     if (this.isFiltered) {
+      const name =
+        this.curQuery === null
+          ? 'semantic search results'
+          : 'lexical search results';
+
       if (this.curDocuments.length < LEXICAL_SEARCH_LIMIT) {
         countLabel = html` <div class="count-label">
-          ${numberFormatter(this.curDocuments.length)} search results
+          ${numberFormatter(this.curDocuments.length)} ${name}
         </div>`;
       } else {
         countLabel = html` <div class="count-label">
-          ${numberFormatter(this.curDocuments.length)}+ search results
+          ${numberFormatter(this.curDocuments.length)}+ ${name}
         </div>`;
       }
     }
@@ -409,7 +431,8 @@ export class MememoTextViewer extends LitElement {
               id="search-bar-input"
               type="text"
               name="search-bar-input"
-              ?disabled=${!this.isMememoFinishedLoading}
+              ?disabled=${!this.isMememoFinishedLoading ||
+              (this.isFiltered && this.curQuery === null)}
               @input=${(e: InputEvent) => this.searchBarEntered(e)}
               placeholder=${this.isMememoFinishedLoading
                 ? 'Search local documents'
@@ -423,6 +446,13 @@ export class MememoTextViewer extends LitElement {
             >
               <span class="svg-icon cross">${unsafeHTML(crossIcon)}</span>
             </span>
+
+            <div
+              class="semantic-search-info"
+              ?is-hidden=${!this.isFiltered || this.curQuery !== null}
+            >
+              Documents similar to user query
+            </div>
           </div>
         </div>
 
