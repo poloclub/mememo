@@ -9,21 +9,12 @@ import { MinHeap, MaxHeap, IGetCompareValue } from '@datastructures-js/heap';
 import Dexie from 'dexie';
 import type { Table, PromiseExtended, IndexableType } from 'dexie';
 
-export type IDBValidKey = number | string | Date | BufferSource;
 type BuiltInDistanceFunction = 'cosine' | 'cosine-normalized';
 
-interface SearchNodeCandidate<T extends IDBValidKey> {
-  key: T;
+interface SearchNodeCandidate {
+  key: string;
   distance: number;
 }
-
-/**
- * - 'cosine': Cosine distance
- * - 'cosine-normalized': Cosine distance between two normalized vectors
- */
-type DistanceFunction =
-  | BuiltInDistanceFunction
-  | ((a: number[], b: number[]) => number);
 
 // Built-in distance functions
 const DISTANCE_FUNCTIONS: Record<
@@ -83,9 +74,9 @@ interface HNSWConfig {
 /**
  * A node in the HNSW graph.
  */
-class Node<T extends IDBValidKey> {
+class Node {
   /** The unique key of an element. */
-  key: T;
+  key: string;
 
   /** The embedding value of the element. */
   value: number[];
@@ -93,7 +84,7 @@ class Node<T extends IDBValidKey> {
   /** Whether the node is marked as deleted. */
   isDeleted: boolean;
 
-  constructor(key: T, value: number[]) {
+  constructor(key: string, value: number[]) {
     this.key = key;
     this.value = value;
     this.isDeleted = false;
@@ -103,13 +94,13 @@ class Node<T extends IDBValidKey> {
 /**
  * An abstraction of a map storing nodes in memory
  */
-class NodesInMemory<T extends IDBValidKey> {
-  nodesMap: Map<T, Node<T>>;
+class NodesInMemory {
+  nodesMap: Map<string, Node>;
   shouldPreComputeDistance = false;
   distanceCache: Map<string, number> = new Map<string, number>();
 
   constructor() {
-    this.nodesMap = new Map<T, Node<T>>();
+    this.nodesMap = new Map<string, Node>();
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await
@@ -118,17 +109,17 @@ class NodesInMemory<T extends IDBValidKey> {
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await
-  async has(key: T) {
+  async has(key: string) {
     return this.nodesMap.has(key);
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await
-  async get(key: T, _level: number) {
+  async get(key: string, _level: number) {
     return this.nodesMap.get(key);
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await
-  async set(key: T, value: Node<T>) {
+  async set(key: string, value: Node) {
     this.nodesMap.set(key, value);
   }
 
@@ -138,7 +129,7 @@ class NodesInMemory<T extends IDBValidKey> {
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await
-  async bulkSet(keys: T[], values: Node<T>[]) {
+  async bulkSet(keys: string[], values: Node[]) {
     for (const [i, key] of keys.entries()) {
       this.nodesMap.set(key, values[i]);
     }
@@ -146,10 +137,10 @@ class NodesInMemory<T extends IDBValidKey> {
 
   // eslint-disable-next-line @typescript-eslint/require-await
   async clear() {
-    this.nodesMap = new Map<T, Node<T>>();
+    this.nodesMap = new Map<string, Node>();
   }
 
-  preComputeDistance(insertKey: T) {
+  preComputeDistance(insertKey: string) {
     // pass
   }
 }
@@ -157,13 +148,13 @@ class NodesInMemory<T extends IDBValidKey> {
 /**
  * An abstraction of a map storing nodes in indexedDB
  */
-class NodesInIndexedDB<T extends IDBValidKey> {
-  nodesMap: Map<T, Node<T>>;
-  dbPromise: PromiseExtended<Table<Node<T>, IndexableType>>;
+class NodesInIndexedDB {
+  nodesMap: Map<string, Node>;
+  dbPromise: PromiseExtended<Table<Node, IndexableType>>;
   /**
    * Graph layers from the index. We need it to pre-fetch data from indexedDB
    */
-  graphLayers: GraphLayer<T>[];
+  graphLayers: GraphLayer[];
   prefetchSize: number;
   hasSetPrefetchSize: boolean;
   _prefetchTimes = 0;
@@ -178,12 +169,12 @@ class NodesInIndexedDB<T extends IDBValidKey> {
    * @param prefetchSize Number of items to prefetch.
    */
   constructor(
-    graphLayers: GraphLayer<T>[],
+    graphLayers: GraphLayer[],
     shouldPreComputeDistance: boolean,
     prefetchSize?: number,
     distanceCacheMaxSize = 4096
   ) {
-    this.nodesMap = new Map<T, Node<T>>();
+    this.nodesMap = new Map<string, Node>();
     this.graphLayers = graphLayers;
 
     if (prefetchSize !== undefined) {
@@ -207,7 +198,7 @@ class NodesInIndexedDB<T extends IDBValidKey> {
     myDexie.version(1).stores({
       mememo: 'key'
     });
-    const db = myDexie.table<Node<T>>('mememo');
+    const db = myDexie.table<Node>('mememo');
     this.dbPromise = db.clear().then(() => db);
   }
 
@@ -216,13 +207,13 @@ class NodesInIndexedDB<T extends IDBValidKey> {
     return await db.count();
   }
 
-  async has(key: T) {
+  async has(key: string) {
     const db = await this.dbPromise;
     const result = await db.get(key);
     return result !== undefined;
   }
 
-  async get(key: T, level: number) {
+  async get(key: string, level: number) {
     if (!this.nodesMap.has(key)) {
       // Prefetch the node and its neighbors from indexedDB if the node is not
       // in memory
@@ -230,15 +221,13 @@ class NodesInIndexedDB<T extends IDBValidKey> {
     }
 
     if (!this.nodesMap.has(key)) {
-      throw Error(
-        `The node ${JSON.stringify(key)} is not in memory after pre-fetching.`
-      );
+      throw Error(`The node ${key} is not in memory after pre-fetching.`);
     }
 
     return this.nodesMap.get(key);
   }
 
-  async set(key: T, value: Node<T>) {
+  async set(key: string, value: Node) {
     if (!this.hasSetPrefetchSize) {
       this._updateAutoPrefetchSize(value.value.length);
     }
@@ -253,11 +242,11 @@ class NodesInIndexedDB<T extends IDBValidKey> {
 
   async keys() {
     const db = await this.dbPromise;
-    const results = (await db.toCollection().primaryKeys()) as T[];
+    const results = (await db.toCollection().primaryKeys()) as string[];
     return results;
   }
 
-  async bulkSet(keys: T[], values: Node<T>[]) {
+  async bulkSet(keys: string[], values: Node[]) {
     if (!this.hasSetPrefetchSize && values.length > 0) {
       this._updateAutoPrefetchSize(values[0].value.length);
     }
@@ -296,18 +285,18 @@ class NodesInIndexedDB<T extends IDBValidKey> {
    * `this.prefetchSize` limit
    * @param key Current node key
    */
-  async _prefetch(key: T, level: number) {
+  async _prefetch(key: string, level: number) {
     this.nodesMap.clear();
 
     // BFS traverse the current graph
     const graphLayer = this.graphLayers[level];
 
-    const nodeCandidateCompare: IGetCompareValue<SearchNodeCandidate<T>> = (
-      candidate: SearchNodeCandidate<T>
+    const nodeCandidateCompare: IGetCompareValue<SearchNodeCandidate> = (
+      candidate: SearchNodeCandidate
     ) => candidate.distance;
     const candidateHeap = new MinHeap(nodeCandidateCompare);
-    const visitedNodes = new Set<T>();
-    const keysToFetch = new Set<T>();
+    const visitedNodes = new Set<string>();
+    const keysToFetch = new Set<string>();
 
     // Start from the current node
     candidateHeap.push({ key, distance: 0 });
@@ -322,9 +311,7 @@ class NodesInIndexedDB<T extends IDBValidKey> {
 
       const curNode = graphLayer.graph.get(curCandidate.key);
       if (curNode === undefined) {
-        throw Error(
-          `Cannot find node with key ${JSON.stringify(curCandidate.key)}`
-        );
+        throw Error(`Cannot find node with key ${curCandidate.key}`);
       }
 
       // Add its neighbors to the candidate, increase the distance by the
@@ -357,7 +344,7 @@ class NodesInIndexedDB<T extends IDBValidKey> {
     this._prefetchTimes += 1;
   }
 
-  preComputeDistance(insertKey: T) {
+  preComputeDistance(insertKey: string) {
     if (!this.nodesMap.has(insertKey) || !this.shouldPreComputeDistance) {
       return;
     }
@@ -394,7 +381,7 @@ class NodesInIndexedDB<T extends IDBValidKey> {
     // // Store the distances
     // for (const [i, key] of keys.entries()) {
     //   this.distanceCache.set(
-    //     `${JSON.stringify(insertKey)}-${JSON.stringify(key)}`,
+    //     `${insertKey}-${key}`,
     //     distanceScores[i]
     //   );
     // }
@@ -404,30 +391,65 @@ class NodesInIndexedDB<T extends IDBValidKey> {
 /**
  * One graph layer in the HNSW index
  */
-class GraphLayer<T extends IDBValidKey> {
+class GraphLayer {
   /** The graph maps a key to its neighbor and distances */
-  graph: Map<T, Map<T, number>>;
+  graph: Map<string, Map<string, number>>;
 
   /**
    * Initialize a new graph layer.
    * @param key The first key to insert into the graph layer.
    */
-  constructor(key: T) {
-    this.graph = new Map<T, Map<T, number>>();
-    this.graph.set(key, new Map<T, number>());
+  constructor(key: string) {
+    this.graph = new Map<string, Map<string, number>>();
+    this.graph.set(key, new Map<string, number>());
+  }
+
+  serializeToJSON() {
+    const graph: Record<string, Record<string, number>> = {};
+
+    // Convert the map into a serializable record
+    for (const [key, neighborMap] of this.graph.entries()) {
+      const neighborMapRecord: Record<string, number> = {};
+      for (const [neighborKey, distance] of neighborMap.entries()) {
+        neighborMapRecord[neighborKey] = distance;
+      }
+      graph[key] = neighborMapRecord;
+    }
+
+    return graph;
+  }
+
+  loadJSON(graph: Record<string, Record<string, number>>) {
+    this.graph = new Map<string, Map<string, number>>();
+
+    for (const key of Object.keys(graph)) {
+      const neighborMapRecord = graph[key];
+      const neighborMap = new Map<string, number>();
+
+      for (const neighborKey of Object.keys(neighborMapRecord)) {
+        const distance = neighborMapRecord[neighborKey];
+        neighborMap.set(neighborKey, distance);
+      }
+
+      this.graph.set(key, neighborMap);
+    }
   }
 }
 
 /**
  * HNSW (Hierarchical Navigable Small World) class.
  */
-export class HNSW<T extends IDBValidKey = string> {
+export class HNSW {
   distanceFunction: (
     a: number[],
     b: number[],
-    aKey: T | null,
-    bKey: T | null
+    aKey: string | null,
+    bKey: string | null
   ) => number;
+  distanceFunctionType: BuiltInDistanceFunction | 'custom';
+  _distanceFunctionCallTimes = 0;
+  _distanceFunctionSkipTimes = 0;
+  useDistanceCache = false;
 
   /** The max number of neighbors for each node. */
   m: number;
@@ -442,19 +464,19 @@ export class HNSW<T extends IDBValidKey = string> {
   ml: number;
 
   /** Seeded random number generator */
+  seed: number;
   rng: () => number;
 
   /** A collection all the nodes */
-  nodes: NodesInMemory<T> | NodesInIndexedDB<T>;
+  nodes: NodesInMemory | NodesInIndexedDB;
 
   /** A list of all layers */
-  graphLayers: GraphLayer<T>[];
+  graphLayers: GraphLayer[];
 
   /** Current entry point of the graph */
-  entryPointKey: T | null = null;
+  entryPointKey: string | null = null;
 
-  _distanceFunctionCallTimes = 0;
-  _distanceFunctionSkipTimes = 0;
+  useIndexedDB = false;
 
   /**
    * Constructs a new instance of the class.
@@ -488,56 +510,66 @@ export class HNSW<T extends IDBValidKey = string> {
     this.ml = ml || 1 / Math.log(this.m);
 
     if (seed) {
-      this.rng = randomLcg(seed);
+      this.seed = seed;
     } else {
-      this.rng = randomLcg(randomUniform()());
+      this.seed = randomUniform()();
     }
+    this.rng = randomLcg(this.seed);
 
     // Set the distance function type
     let usedDistanceFunction = DISTANCE_FUNCTIONS['cosine-normalized'];
-    let useDistanceCache = false;
+    this.distanceFunctionType = 'cosine-normalized';
 
     if (distanceFunction === undefined) {
       usedDistanceFunction = DISTANCE_FUNCTIONS['cosine-normalized'];
-      useDistanceCache = true;
+      this.distanceFunctionType = 'cosine-normalized';
     } else {
       if (typeof distanceFunction === 'string') {
         usedDistanceFunction = DISTANCE_FUNCTIONS[distanceFunction];
         if (distanceFunction === 'cosine-normalized') {
-          useDistanceCache = true;
+          this.distanceFunctionType = 'cosine-normalized';
+        } else if (distanceFunction === 'cosine') {
+          this.distanceFunctionType = 'cosine';
         }
       } else {
         usedDistanceFunction = distanceFunction;
+        this.distanceFunctionType = 'custom';
       }
     }
 
     // The cache mechanism needs improvement, we just disable it for now
-    useDistanceCache = false;
+    // this.useDistanceCache = this.distanceFunctionType === 'cosine-normalized';
+    this.useDistanceCache = false;
 
     // Data structures
     this.graphLayers = [];
 
     if (useIndexedDB === undefined || useIndexedDB === false) {
+      this.useIndexedDB = false;
       this.nodes = new NodesInMemory();
     } else {
-      this.nodes = new NodesInIndexedDB(this.graphLayers, useDistanceCache);
+      this.useIndexedDB = true;
+      this.nodes = new NodesInIndexedDB(
+        this.graphLayers,
+        this.useDistanceCache
+      );
     }
 
     // Set the distance function which has access to the distance cache
     this.distanceFunction = (
       a: number[],
       b: number[],
-      aKey: T | null,
-      bKey: T | null
+      aKey: string | null,
+      bKey: string | null
     ) => {
-      if (!useDistanceCache || aKey === null || bKey === null) {
+      if (!this.useDistanceCache || aKey === null || bKey === null) {
         this._distanceFunctionCallTimes += 1;
         return usedDistanceFunction(a, b);
       }
 
       // Try two different key combinations
-      const keyComb1 = `${JSON.stringify(aKey)}-${JSON.stringify(bKey)}`;
-      const keyComb2 = `${JSON.stringify(bKey)}-${JSON.stringify(aKey)}`;
+      const keyComb1 = `${aKey}-${bKey}`;
+      const keyComb2 = `${bKey}-${aKey}`;
 
       if (this.nodes.distanceCache.has(keyComb1)) {
         this._distanceFunctionSkipTimes += 1;
@@ -557,13 +589,29 @@ export class HNSW<T extends IDBValidKey = string> {
   }
 
   /**
+   * Serialize the index into a JSON string
+   */
+  exportIndex() {
+    const mememoIndex = {
+      distanceFunctionTyle: this.distanceFunctionType,
+      m: this.m,
+      efConstruction: this.efConstruction,
+      mMax0: this.mMax0,
+      ml: this.ml,
+      seed: this.seed,
+      useIndexedDB: this.useIndexedDB,
+      useDistanceCache: this.useDistanceCache
+    };
+  }
+
+  /**
    * Insert a new element to the index.
    * @param key Key of the new element.
    * @param value The embedding of the new element to insert.
    * @param maxLevel The max layer to insert this element. You don't need to set
    * this value in most cases. We add this parameter for testing purpose.
    */
-  async insert(key: T, value: number[], maxLevel?: number | undefined) {
+  async insert(key: string, value: number[], maxLevel?: number | undefined) {
     // Randomly determine the max level of this node
     const level = maxLevel === undefined ? this._getRandomLevel() : maxLevel;
 
@@ -580,7 +628,7 @@ export class HNSW<T extends IDBValidKey = string> {
       }
 
       throw Error(
-        `There is already a node with key ${JSON.stringify(key)} in the` +
+        `There is already a node with key ${key} in the` +
           'index. Use update() to update this node.'
       );
     }
@@ -599,21 +647,21 @@ export class HNSW<T extends IDBValidKey = string> {
    * @param maxLevel The max layer to insert this element. You don't need to set
    * this value in most cases. We add this parameter for testing purpose.
    */
-  async bulkInsert(keys: T[], values: number[][], maxLevels?: number[]) {
+  async bulkInsert(keys: string[], values: number[][], maxLevels?: number[]) {
     const existingKeys = await this.nodes.keys();
 
     // TODO: this method does not consider deleted nodes
     for (const key of keys) {
       if (existingKeys.includes(key)) {
         throw Error(
-          `There is already a node with key ${JSON.stringify(key)} in the` +
+          `There is already a node with key ${key} in the` +
             'index. Use update() to update this node.'
         );
       }
     }
 
     // Bulk add nodes to the node index first
-    const newNodes: Node<T>[] = [];
+    const newNodes: Node[] = [];
     for (const [i, key] of keys.entries()) {
       newNodes.push(new Node(key, values[i]));
     }
@@ -644,7 +692,7 @@ export class HNSW<T extends IDBValidKey = string> {
    * @param value Embeddings of the new element
    * @param level Max level for this insert
    */
-  async _insertToGraph(key: T, value: number[], level: number) {
+  async _insertToGraph(key: string, value: number[], level: number) {
     if (this.entryPointKey !== null) {
       // Pre-compute the distance if possible
       if (this.nodes.shouldPreComputeDistance) {
@@ -664,7 +712,7 @@ export class HNSW<T extends IDBValidKey = string> {
         key,
         entryPointInfo.key
       );
-      let minNodeKey: T = this.entryPointKey;
+      let minNodeKey = this.entryPointKey;
 
       // Top layer => all layers above the new node's highest layer
       for (let l = this.graphLayers.length - 1; l >= level + 1; l--) {
@@ -680,7 +728,7 @@ export class HNSW<T extends IDBValidKey = string> {
       }
 
       // (2): Insert the node from its random layer to layer 0
-      let entryPoints: SearchNodeCandidate<T>[] = [
+      let entryPoints: SearchNodeCandidate[] = [
         { key: minNodeKey, distance: minDistance }
       ];
 
@@ -707,7 +755,7 @@ export class HNSW<T extends IDBValidKey = string> {
         );
 
         // Insert the new node
-        const newNode = new Map<T, number>();
+        const newNode = new Map<string, number>();
         for (const neighbor of selectedNeighbors) {
           newNode.set(neighbor.key, neighbor.distance);
         }
@@ -718,15 +766,13 @@ export class HNSW<T extends IDBValidKey = string> {
         for (const neighbor of selectedNeighbors) {
           const neighborNode = this.graphLayers[l].graph.get(neighbor.key);
           if (neighborNode === undefined) {
-            throw Error(
-              `Can't find neighbor node ${JSON.stringify(neighbor.key)}`
-            );
+            throw Error(`Can't find neighbor node ${neighbor.key}`);
           }
 
           // Add the neighbor's existing neighbors as candidates
-          const neighborNeighborCandidates: SearchNodeCandidate<T>[] = [];
+          const neighborNeighborCandidates: SearchNodeCandidate[] = [];
           for (const [key, distance] of neighborNode.entries()) {
-            const candidate: SearchNodeCandidate<T> = { key, distance };
+            const candidate: SearchNodeCandidate = { key, distance };
             neighborNeighborCandidates.push(candidate);
           }
 
@@ -742,7 +788,7 @@ export class HNSW<T extends IDBValidKey = string> {
             );
 
           // Update this neighbor's neighborhood
-          const newNeighborNode = new Map<T, number>();
+          const newNeighborNode = new Map<string, number>();
           for (const neighborNeighbor of selectedNeighborNeighbors) {
             newNeighborNode.set(
               neighborNeighbor.key,
@@ -768,10 +814,10 @@ export class HNSW<T extends IDBValidKey = string> {
    * @param key Key of the element.
    * @param value The new embedding of the element
    */
-  async update(key: T, value: number[]) {
+  async update(key: string, value: number[]) {
     if (!(await this.nodes.has(key))) {
       throw Error(
-        `The node with key ${JSON.stringify(key)} does not exist. ` +
+        `The node with key ${key} does not exist. ` +
           'Use insert() to add new node.'
       );
     }
@@ -797,7 +843,7 @@ export class HNSW<T extends IDBValidKey = string> {
 
       // For each neighbor, we use the entire second-degree neighborhood of the
       // updating node as new connection candidates
-      const secondDegreeNeighborhood: Set<T> = new Set([key]);
+      const secondDegreeNeighborhood: Set<string> = new Set([key]);
 
       // Find the second-degree neighborhood
       for (const firstDegreeNeighbor of curNode.keys()) {
@@ -806,9 +852,7 @@ export class HNSW<T extends IDBValidKey = string> {
         const firstDegreeNeighborNode =
           curGraphLayer.graph.get(firstDegreeNeighbor);
         if (firstDegreeNeighborNode === undefined) {
-          throw Error(
-            `Can't find node with key ${JSON.stringify(firstDegreeNeighbor)}`
-          );
+          throw Error(`Can't find node with key ${firstDegreeNeighbor}`);
         }
 
         for (const secondDegreeNeighbor of firstDegreeNeighborNode.keys()) {
@@ -817,8 +861,8 @@ export class HNSW<T extends IDBValidKey = string> {
       }
 
       // Update the first-degree neighbor's connections
-      const nodeCompare: IGetCompareValue<SearchNodeCandidate<T>> = (
-        candidate: SearchNodeCandidate<T>
+      const nodeCompare: IGetCompareValue<SearchNodeCandidate> = (
+        candidate: SearchNodeCandidate
       ) => candidate.distance;
 
       for (const firstDegreeNeighbor of curNode.keys()) {
@@ -868,7 +912,7 @@ export class HNSW<T extends IDBValidKey = string> {
         );
 
         // (3) Update the neighbor's neighborhood
-        const newNeighborNode = new Map<T, number>();
+        const newNeighborNode = new Map<string, number>();
         for (const neighborNeighbor of selectedCandidates) {
           newNeighborNode.set(neighborNeighbor.key, neighborNeighbor.distance);
         }
@@ -893,16 +937,16 @@ export class HNSW<T extends IDBValidKey = string> {
    *
    * @param key Key of the node to delete
    */
-  async markDeleted(key: T) {
+  async markDeleted(key: string) {
     if (!(await this.nodes.has(key))) {
-      throw Error(`Node with key ${JSON.stringify(key)} does not exist.`);
+      throw Error(`Node with key ${key} does not exist.`);
     }
 
     // Special case: the user is trying to delete the entry point
     // We move the entry point to a neighbor or clean the entire graph if the
     // node is the last node
     if (this.entryPointKey === key) {
-      let newEntryPointKey: T | null = null;
+      let newEntryPointKey: string | null = null;
       // Traverse from top layer to layer 0
       for (let l = this.graphLayers.length - 1; l >= 0; l--) {
         for (const otherKey of this.graphLayers[l].graph.keys()) {
@@ -943,7 +987,7 @@ export class HNSW<T extends IDBValidKey = string> {
    *
    * @param key Key of the node to recover
    */
-  async unMarkDeleted(key: T) {
+  async unMarkDeleted(key: string) {
     const nodeInfo = await this._getNodeInfo(key, 0);
     nodeInfo.isDeleted = false;
     await this.nodes.set(key, nodeInfo);
@@ -973,7 +1017,7 @@ export class HNSW<T extends IDBValidKey = string> {
     }
 
     // EF=1 search from the top layer to layer 1
-    let minNodeKey: T = this.entryPointKey;
+    let minNodeKey: string = this.entryPointKey;
     const entryPointInfo = await this._getNodeInfo(
       minNodeKey,
       this.graphLayers.length - 1
@@ -999,7 +1043,7 @@ export class HNSW<T extends IDBValidKey = string> {
     }
 
     // EF search on layer 0
-    const entryPoints: SearchNodeCandidate<T>[] = [
+    const entryPoints: SearchNodeCandidate[] = [
       { key: minNodeKey, distance: minNodeDistance }
     ];
     const candidates = await this._searchLayer(
@@ -1026,12 +1070,12 @@ export class HNSW<T extends IDBValidKey = string> {
    * @param key Key of an existing element
    * @param value Embedding value of an existing element
    */
-  async _reIndexNode(key: T, value: number[]) {
+  async _reIndexNode(key: string, value: number[]) {
     if (this.entryPointKey === null) {
       throw Error('entryPointKey is null');
     }
 
-    let minNodeKey: T = this.entryPointKey;
+    let minNodeKey: string = this.entryPointKey;
     const entryPointInfo = await this._getNodeInfo(
       minNodeKey,
       this.graphLayers.length - 1
@@ -1042,7 +1086,7 @@ export class HNSW<T extends IDBValidKey = string> {
       entryPointInfo.key,
       key
     );
-    let entryPoints: SearchNodeCandidate<T>[] = [
+    let entryPoints: SearchNodeCandidate[] = [
       { key: minNodeKey, distance: minNodeDistance }
     ];
 
@@ -1089,7 +1133,7 @@ export class HNSW<T extends IDBValidKey = string> {
         );
 
         // Update the node's neighbors
-        const newNode = new Map<T, number>();
+        const newNode = new Map<string, number>();
         for (const neighbor of selectedNeighbors) {
           newNode.set(neighbor.key, neighbor.distance);
         }
@@ -1108,16 +1152,16 @@ export class HNSW<T extends IDBValidKey = string> {
    * @param canReturnDeletedNodes Whether to return deleted nodes
    */
   async _searchLayerEF1(
-    queryKey: T | null,
+    queryKey: string | null,
     queryValue: number[],
-    entryPointKey: T,
+    entryPointKey: string,
     entryPointDistance: number,
     level: number,
     canReturnDeletedNode = true
   ) {
     const graphLayer = this.graphLayers[level];
-    const nodeCandidateCompare: IGetCompareValue<SearchNodeCandidate<T>> = (
-      candidate: SearchNodeCandidate<T>
+    const nodeCandidateCompare: IGetCompareValue<SearchNodeCandidate> = (
+      candidate: SearchNodeCandidate
     ) => candidate.distance;
     const candidateHeap = new MinHeap(nodeCandidateCompare);
 
@@ -1127,7 +1171,7 @@ export class HNSW<T extends IDBValidKey = string> {
     // Find the node with the minimal distance using greedy graph search
     let minNodeKey = entryPointKey;
     let minDistance = entryPointDistance;
-    const visitedNodes = new Set<T>();
+    const visitedNodes = new Set<string>();
 
     while (candidateHeap.size() > 0) {
       const curCandidate = candidateHeap.pop()!;
@@ -1137,9 +1181,7 @@ export class HNSW<T extends IDBValidKey = string> {
 
       const curNode = graphLayer.graph.get(curCandidate.key);
       if (curNode === undefined) {
-        throw Error(
-          `Cannot find node with key ${JSON.stringify(curCandidate.key)}`
-        );
+        throw Error(`Cannot find node with key ${curCandidate.key})}`);
       }
 
       for (const key of curNode.keys()) {
@@ -1184,9 +1226,9 @@ export class HNSW<T extends IDBValidKey = string> {
    * @param canReturnDeletedNodes Whether to return deleted nodes
    */
   async _searchLayer(
-    queryKey: T | null,
+    queryKey: string | null,
     queryValue: number[],
-    entryPoints: SearchNodeCandidate<T>[],
+    entryPoints: SearchNodeCandidate[],
     level: number,
     ef: number,
     canReturnDeletedNodes = true
@@ -1196,13 +1238,13 @@ export class HNSW<T extends IDBValidKey = string> {
     // We maintain two heaps in this function
     // For candidate nodes, we use a min heap to get the closest node
     // For found nearest nodes, we use a max heap to get the furthest node
-    const nodeCompare: IGetCompareValue<SearchNodeCandidate<T>> = (
-      candidate: SearchNodeCandidate<T>
+    const nodeCompare: IGetCompareValue<SearchNodeCandidate> = (
+      candidate: SearchNodeCandidate
     ) => candidate.distance;
 
     const candidateMinHeap = new MinHeap(nodeCompare);
     const foundNodesMaxHeap = new MaxHeap(nodeCompare);
-    const visitedNodes = new Set<T>();
+    const visitedNodes = new Set<string>();
 
     for (const searchNode of entryPoints) {
       candidateMinHeap.push(searchNode);
@@ -1221,9 +1263,7 @@ export class HNSW<T extends IDBValidKey = string> {
       // Update candidates and found nodes using the current node's neighbors
       const curNode = graphLayer.graph.get(nearestCandidate.key);
       if (curNode === undefined) {
-        throw Error(
-          `Cannot find node with key ${JSON.stringify(nearestCandidate.key)}`
-        );
+        throw Error(`Cannot find node with key ${nearestCandidate.key}`);
       }
 
       for (const neighborKey of curNode.keys()) {
@@ -1282,7 +1322,7 @@ export class HNSW<T extends IDBValidKey = string> {
    * @param level Current graph layer level
    */
   async _selectNeighborsHeuristic(
-    candidates: SearchNodeCandidate<T>[],
+    candidates: SearchNodeCandidate[],
     maxSize: number,
     level: number
   ) {
@@ -1292,8 +1332,8 @@ export class HNSW<T extends IDBValidKey = string> {
       return candidates;
     }
 
-    const nodeCompare: IGetCompareValue<SearchNodeCandidate<T>> = (
-      candidate: SearchNodeCandidate<T>
+    const nodeCompare: IGetCompareValue<SearchNodeCandidate> = (
+      candidate: SearchNodeCandidate
     ) => candidate.distance;
 
     const candidateMinHeap = new MinHeap(nodeCompare);
@@ -1301,7 +1341,7 @@ export class HNSW<T extends IDBValidKey = string> {
       candidateMinHeap.insert(candidate);
     }
 
-    const selectedNeighbors: SearchNodeCandidate<T>[] = [];
+    const selectedNeighbors: SearchNodeCandidate[] = [];
 
     while (candidateMinHeap.size() > 0) {
       if (selectedNeighbors.length >= maxSize) {
@@ -1357,10 +1397,10 @@ export class HNSW<T extends IDBValidKey = string> {
    * across levels, but we need the level number to pre-fetch node / neighbor
    * embeddings from indexedDB
    */
-  async _getNodeInfo(key: T, level: number) {
+  async _getNodeInfo(key: string, level: number) {
     const node = await this.nodes.get(key, level);
     if (node === undefined) {
-      throw Error(`Can't find node with key ${JSON.stringify(key)}`);
+      throw Error(`Can't find node with key ${key}`);
     }
     return node;
   }
