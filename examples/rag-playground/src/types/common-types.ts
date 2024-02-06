@@ -4,6 +4,11 @@
 
 export type DocumentRecordStreamData = [string, number[]];
 
+export interface DocumentDBEntry {
+  id: number;
+  text: string;
+}
+
 export interface DocumentRecord {
   embedding: number[];
   id: number;

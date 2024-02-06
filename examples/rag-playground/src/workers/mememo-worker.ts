@@ -1,6 +1,7 @@
 import { HNSW } from '../../../../src/index';
 import type {
   DocumentRecord,
+  DocumentDBEntry,
   DocumentRecordStreamData
 } from '../types/common-types';
 import {
@@ -9,7 +10,8 @@ import {
   parseJSONTransform
 } from '@xiaohk/utils';
 import Flexsearch from 'flexsearch';
-import { openDB, IDBPDatabase } from 'idb';
+import Dexie from 'dexie';
+import type { Table, PromiseExtended } from 'dexie';
 
 //==========================================================================||
 //                            Types & Constants                             ||
@@ -63,11 +65,12 @@ const flexIndex: Flexsearch.Index = new Flexsearch.Index({
   tokenize: 'forward'
 }) as Flexsearch.Index;
 let workerDatasetName = 'my-dataset';
-let documentDBPromise: Promise<IDBPDatabase<string>> | null = null;
+let documentDBPromise: PromiseExtended<Table<DocumentDBEntry, number>> | null =
+  null;
 const hnswIndex = new HNSW<string>({
-  distanceFunction: 'cosine',
+  distanceFunction: 'cosine-normalized',
   seed: 123,
-  useIndexedDB: false
+  useIndexedDB: true
 });
 
 //==========================================================================||
@@ -114,11 +117,13 @@ const startLoadCompressedData = (url: string, datasetName: string) => {
   // Update the indexed db store reference
   workerDatasetName = datasetName;
 
-  documentDBPromise = openDB<string>(`${workerDatasetName}-store`, 1, {
-    upgrade(db) {
-      db.createObjectStore(workerDatasetName);
-    }
+  // Create a new store, clear content from previous sessions
+  const myDexie = new Dexie('mememo-document-store');
+  myDexie.version(1).stores({
+    mememo: 'id'
   });
+  const db = myDexie.table<DocumentDBEntry, number>('mememo');
+  documentDBPromise = db.clear().then(() => db);
 
   fetch(url).then(
     async response => {
@@ -168,16 +173,25 @@ const processPointStream = async (point: DocumentRecordStreamData) => {
     id: loadedPointCount
   };
 
-  // Index the point
+  // Index the point in flex
   pendingDataPoints.push(documentPoint);
   flexIndex.add(documentPoint.id, documentPoint.text);
-  await documentDB.put(workerDatasetName, documentPoint.text, documentPoint.id);
-  await hnswIndex.insert(String(documentPoint.id), documentPoint.embedding);
 
   loadedPointCount += 1;
 
-  // Notify the main thread if we have load enough data
   if (pendingDataPoints.length >= POINT_THRESHOLD) {
+    // Batched index the documents to IndexedDB and MeMemo
+    const keys = pendingDataPoints.map(d => String(d.id));
+    const embeddings = pendingDataPoints.map(d => d.embedding);
+    const documentEntries: DocumentDBEntry[] = pendingDataPoints.map(d => ({
+      id: d.id,
+      text: d.text
+    }));
+
+    await documentDB.bulkPut(documentEntries);
+    await hnswIndex.bulkInsert(keys, embeddings);
+
+    // Notify the main thread if we have load enough data
     const result: MememoWorkerMessage = {
       command: 'transferLoadData',
       payload: {
@@ -235,17 +249,19 @@ const searchPoint = async (query: string, limit: number, requestID: number) => {
   }) as unknown as number[];
 
   // Look up the indexes in indexedDB
-  const results = [];
-  for (const i of resultIndexes) {
-    const result = (await documentDB.get(workerDatasetName, i)) as string;
-    results.push(result);
+  const results = await documentDB.bulkGet(resultIndexes);
+  const documents: string[] = [];
+  for (const r of results) {
+    if (r !== undefined) {
+      documents.push(r.text);
+    }
   }
 
   const message: MememoWorkerMessage = {
     command: 'finishLexicalSearch',
     payload: {
       query,
-      results,
+      results: documents,
       requestID
     }
   };
