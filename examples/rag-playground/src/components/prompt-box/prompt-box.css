@@ -20,7 +20,7 @@ textarea {
   font-family: inherit;
   font-size: var(--font-d2);
   resize: vertical;
-  max-height: 300px;
+  min-height: 60px;
 
   &:focus {
     outline: 2px solid var(--focus-border-color);

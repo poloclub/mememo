@@ -40,6 +40,12 @@ export class MememoQueryBox extends LitElement {
   //==========================================================================||
   async initData() {}
 
+  setTextareaMaxHeight(maxHeight: number) {
+    if (!this.shadowRoot) return;
+    const textarea = this.shadowRoot.querySelector('textarea') as HTMLElement;
+    textarea.style.setProperty('max-height', `${maxHeight - 50}px`);
+  }
+
   //==========================================================================||
   //                              Event Handlers                              ||
   //==========================================================================||
@@ -83,7 +89,7 @@ export class MememoQueryBox extends LitElement {
             </button>
           </div>
         </div>
-        <textarea rows="5" @input=${(e: InputEvent) => this.textareaInput(e)}>
+        <textarea rows="2" @input=${(e: InputEvent) => this.textareaInput(e)}>
 ${this.userQuery}</textarea
         >
       </div>

@@ -18,10 +18,13 @@ import TextGenLocalWorkerInline from '../../llms/web-llm?worker&inline';
 import type { TextGenMessage } from '../../llms/gpt';
 import type { EmbeddingWorkerMessage } from '../../workers/embedding';
 import type { MememoTextViewer } from '../text-viewer/text-viewer';
+import type { MememoPromptBox } from '../prompt-box/prompt-box';
+import type { MememoQueryBox } from '../query-box/query-box';
 import type { TextGenLocalWorkerMessage } from '../../llms/web-llm';
 
 import '../query-box/query-box';
 import '../prompt-box/prompt-box';
+import '../output-box/output-box';
 import '../text-viewer/text-viewer';
 
 import componentCSS from './playground.css?inline';
@@ -68,6 +71,9 @@ export class MememoPlayground extends LitElement {
   @state()
   relevantDocuments: string[] = [];
 
+  @state()
+  llmOutput = '';
+
   embeddingWorker: Worker;
   embeddingWorkerRequestCount = 0;
   get embeddingWorkerRequestID() {
@@ -80,6 +86,12 @@ export class MememoPlayground extends LitElement {
 
   @query('mememo-text-viewer')
   textViewerComponent: MememoTextViewer | undefined | null;
+
+  @query('mememo-query-box')
+  queryBoxComponent: MememoQueryBox | undefined | null;
+
+  @query('mememo-prompt-box')
+  promptBoxComponent: MememoPromptBox | undefined | null;
 
   @state()
   userConfigManager: UserConfigManager;
@@ -115,6 +127,55 @@ export class MememoPlayground extends LitElement {
       this.userConfig = userConfig;
     };
     this.userConfigManager = new UserConfigManager(updateUserConfig);
+  }
+
+  firstUpdated() {
+    if (!this.shadowRoot || !this.queryBoxComponent || !this.promptBoxComponent)
+      throw Error('No shadow root.');
+
+    const playground = this.shadowRoot.querySelector(
+      '.playground'
+    ) as HTMLElement;
+    const playgroundBBox = playground.getBoundingClientRect();
+
+    const userContainer = this.shadowRoot.querySelector(
+      '.container-input'
+    ) as HTMLElement;
+    const promptContainer = this.shadowRoot.querySelector(
+      '.container-prompt'
+    ) as HTMLElement;
+    const outputContainer = this.shadowRoot.querySelector(
+      '.container-output'
+    ) as HTMLElement;
+
+    // Add resize observers to the first column elements
+    const resizeHandler: ResizeObserverCallback = entries => {
+      const changedItems: HTMLElement[] = [];
+
+      for (const entry of entries) {
+        changedItems.push(entry.target as HTMLElement);
+      }
+
+      const outputBBoxMinHeigh = 82;
+      if (!changedItems.includes(userContainer)) {
+        // The user is resizing prompt
+        const userBBox = userContainer.getBoundingClientRect();
+        const maxHeight =
+          playgroundBBox.height - userBBox.height - outputBBoxMinHeigh - 175;
+        this.promptBoxComponent!.setTextareaMaxHeight(maxHeight);
+      } else if (!changedItems.includes(promptContainer)) {
+        // The user is resizing user
+        const promptBBox = promptContainer.getBoundingClientRect();
+        const maxHeight =
+          playgroundBBox.height - promptBBox.height - outputBBoxMinHeigh - 175;
+        this.queryBoxComponent!.setTextareaMaxHeight(maxHeight);
+      }
+    };
+
+    const resizeObserver = new ResizeObserver(resizeHandler);
+    resizeObserver.observe(userContainer);
+    resizeObserver.observe(promptContainer);
+    resizeObserver.observe(outputContainer);
   }
 
   /**
@@ -317,7 +378,7 @@ export class MememoPlayground extends LitElement {
               console.info(message.payload.result);
             }
 
-            const output = message.payload.result;
+            this.llmOutput = message.payload.result;
             break;
           }
 
@@ -373,7 +434,9 @@ export class MememoPlayground extends LitElement {
           <div class="model-box">GPT 3.5</div>
         </div>
 
-        <div class="container container-output">Output</div>
+        <div class="container container-output">
+          <mememo-output-box llmOutput=${this.llmOutput}></mememo-output-box>
+        </div>
 
         <div class="flow horizontal-flow input-text">
           <div class="background">
