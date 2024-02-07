@@ -53,3 +53,34 @@ export interface Size {
   width: number;
   height: number;
 }
+
+export type TextGenWorkerMessage =
+  | {
+      command: 'startTextGen';
+      payload: {
+        requestID: string;
+        apiKey: string;
+        prompt: string;
+        temperature: number;
+        stopSequences?: string[];
+        detail?: string;
+      };
+    }
+  | {
+      command: 'finishTextGen';
+      payload: {
+        requestID: string;
+        apiKey: string;
+        result: string;
+        prompt: string;
+        detail: string;
+      };
+    }
+  | {
+      command: 'error';
+      payload: {
+        requestID: string;
+        originalCommand: string;
+        message: string;
+      };
+    };

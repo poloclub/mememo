@@ -95,7 +95,7 @@ export class MememoPromptBox extends LitElement {
     const event = new CustomEvent('runButtonClicked', {
       bubbles: true,
       composed: true,
-      detail: this.template
+      detail: this.prompt
     });
     this.dispatchEvent(event);
   }
@@ -125,7 +125,7 @@ export class MememoPromptBox extends LitElement {
               run
             </button>
 
-            <button @click=${() => this.runButtonClicked()}>
+            <button>
               <span class="svg-icon">${unsafeHTML(expandIcon)}</span>
               view
             </button>

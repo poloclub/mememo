@@ -42,7 +42,7 @@ textarea {
   flex-direction: row;
   justify-content: center;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 
   .text {
     font-weight: 800;

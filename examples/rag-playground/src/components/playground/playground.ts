@@ -2,8 +2,23 @@ import { LitElement, css, unsafeCSS, html, PropertyValues } from 'lit';
 import { customElement, property, state, query } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { EmbeddingModel } from '../../workers/embedding';
+import {
+  UserConfigManager,
+  UserConfig,
+  SupportedRemoteModel,
+  SupportedLocalModel,
+  supportedModelReverseLookup,
+  ModelFamily
+} from './user-config';
+import { textGenGpt } from '../../llms/gpt';
+import { textGenMememo } from '../../llms/mememo-gen';
+import { textGenGemini } from '../../llms/gemini';
+import TextGenLocalWorkerInline from '../../llms/web-llm?worker&inline';
+
+import type { TextGenMessage } from '../../llms/gpt';
 import type { EmbeddingWorkerMessage } from '../../workers/embedding';
 import type { MememoTextViewer } from '../text-viewer/text-viewer';
+import type { TextGenLocalWorkerMessage } from '../../llms/web-llm';
 
 import '../query-box/query-box';
 import '../prompt-box/prompt-box';
@@ -35,6 +50,9 @@ const datasets: Record<Dataset, DatasetInfo> = {
   }
 };
 
+const DEV_MODE = import.meta.env.DEV;
+const USE_CACHE = true && DEV_MODE;
+
 /**
  * Playground element.
  *
@@ -63,6 +81,18 @@ export class MememoPlayground extends LitElement {
   @query('mememo-text-viewer')
   textViewerComponent: MememoTextViewer | undefined | null;
 
+  @state()
+  userConfigManager: UserConfigManager;
+
+  @state()
+  userConfig!: UserConfig;
+
+  @property({ attribute: false })
+  textGenLocalWorker: Worker;
+  textGenLocalWorkerResolve = (
+    value: TextGenMessage | PromiseLike<TextGenMessage>
+  ) => {};
+
   //==========================================================================||
   //                             Lifecycle Methods                            ||
   //==========================================================================||
@@ -76,6 +106,15 @@ export class MememoPlayground extends LitElement {
         this.embeddingWorkerMessageHandler(e);
       }
     );
+
+    // Initialize the local llm worker
+    this.textGenLocalWorker = new TextGenLocalWorkerInline();
+
+    // Set up the user config store
+    const updateUserConfig = (userConfig: UserConfig) => {
+      this.userConfig = userConfig;
+    };
+    this.userConfigManager = new UserConfigManager(updateUserConfig);
   }
 
   /**
@@ -129,11 +168,26 @@ export class MememoPlayground extends LitElement {
   //==========================================================================||
   //                              Event Handlers                              ||
   //==========================================================================||
+  /**
+   * Start extracting embeddings form the user query
+   * @param e Event
+   */
   userQueryRunClickHandler(e: CustomEvent<string>) {
     this.userQuery = e.detail;
 
     // Extract embeddings for the user query
     this.getEmbedding([this.userQuery]);
+  }
+
+  /**
+   * Run the prompt using external AI services or local LLM
+   * @param e Event
+   */
+  promptRunClickHandler(e: CustomEvent<string>) {
+    const prompt = e.detail;
+
+    // Run the prompt
+    this._runPrompt(prompt);
   }
 
   semanticSearchFinishedHandler(e: CustomEvent<string[]>) {
@@ -164,6 +218,117 @@ export class MememoPlayground extends LitElement {
   //==========================================================================||
   //                             Private Helpers                              ||
   //==========================================================================||
+  /**
+   * Run the given prompt using the preferred model
+   * @returns A promise of the prompt inference
+   */
+  _runPrompt(curPrompt: string, temperature = 0.2) {
+    let runRequest: Promise<TextGenMessage>;
+
+    switch (this.userConfig.preferredLLM) {
+      case SupportedRemoteModel['gpt-3.5']: {
+        runRequest = textGenGpt(
+          this.userConfig.llmAPIKeys[ModelFamily.openAI],
+          'text-gen',
+          curPrompt,
+          temperature,
+          'gpt-3.5-turbo',
+          USE_CACHE
+        );
+        break;
+      }
+
+      case SupportedRemoteModel['gpt-4']: {
+        runRequest = textGenGpt(
+          this.userConfig.llmAPIKeys[ModelFamily.openAI],
+          'text-gen',
+          curPrompt,
+          temperature,
+          'gpt-4-1106-preview',
+          USE_CACHE
+        );
+        break;
+      }
+
+      case SupportedRemoteModel['gemini-pro']: {
+        runRequest = textGenGemini(
+          this.userConfig.llmAPIKeys[ModelFamily.google],
+          'text-gen',
+          curPrompt,
+          temperature,
+          USE_CACHE
+        );
+        break;
+      }
+
+      // case SupportedLocalModel['mistral-7b-v0.2']:
+      // case SupportedLocalModel['gpt-2']:
+      case SupportedLocalModel['phi-2']:
+      case SupportedLocalModel['llama-2-7b']:
+      case SupportedLocalModel['tinyllama-1.1b']: {
+        runRequest = new Promise<TextGenMessage>(resolve => {
+          this.textGenLocalWorkerResolve = resolve;
+        });
+        const message: TextGenLocalWorkerMessage = {
+          command: 'startTextGen',
+          payload: {
+            apiKey: '',
+            prompt: curPrompt,
+            requestID: '',
+            temperature: temperature
+          }
+        };
+        this.textGenLocalWorker.postMessage(message);
+        break;
+      }
+
+      case SupportedRemoteModel['gpt-3.5-free']: {
+        runRequest = textGenMememo(
+          'text-gen',
+          curPrompt,
+          temperature,
+          'gpt-3.5-free',
+          USE_CACHE
+        );
+        break;
+      }
+
+      default: {
+        console.error('Unknown case ', this.userConfig.preferredLLM);
+        runRequest = textGenMememo(
+          'text-gen',
+          curPrompt,
+          temperature,
+          'gpt-3.5-free',
+          USE_CACHE
+        );
+      }
+    }
+
+    runRequest.then(
+      message => {
+        switch (message.command) {
+          case 'finishTextGen': {
+            // Success
+            if (DEV_MODE) {
+              console.info(
+                `Finished running prompt with [${this.userConfig.preferredLLM}]`
+              );
+              console.info(message.payload.result);
+            }
+
+            const output = message.payload.result;
+            break;
+          }
+
+          case 'error': {
+            console.error(message.payload.message);
+          }
+        }
+      },
+      () => {}
+    );
+  }
 
   //==========================================================================||
   //                           Templates and Styles                           ||
@@ -198,7 +363,9 @@ export class MememoPlayground extends LitElement {
             template=${promptTemplate[Dataset.Arxiv]}
             userQuery=${this.userQuery}
             .relevantDocuments=${this.relevantDocuments}
-            @runButtonClicked=${(e: CustomEvent<string>) => {}}
+            @runButtonClicked=${(e: CustomEvent<string>) => {
+              this.promptRunClickHandler(e);
+            }}
           ></mememo-prompt-box>
         </div>
 

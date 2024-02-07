@@ -42,13 +42,12 @@ textarea {
   flex-direction: row;
   justify-content: center;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 
   .text-group {
     display: flex;
-    gap: 7px;
+    gap: 5px;
     align-items: baseline;
-    overflow: hidden;
   }
 
   .text {
