@@ -42,6 +42,22 @@ export class MememoPromptBox extends LitElement {
     super();
   }
 
+  firstUpdated() {
+    if (!this.shadowRoot) {
+      throw Error('no shadow root!');
+    }
+
+    // Tell parent to recompute the max size of different elements
+    const textareaElement = this.shadowRoot.querySelector('textarea');
+    textareaElement?.addEventListener('mousedown', () => {
+      const event = new Event('needUpdateMaxHeight', {
+        bubbles: true,
+        composed: true
+      });
+      this.dispatchEvent(event);
+    });
+  }
+
   /**
    * This method is called before new DOM is updated and rendered
    * @param changedProperties Property that has been changed
@@ -153,7 +169,7 @@ export class MememoPromptBox extends LitElement {
             </button>
           </div>
         </div>
-        <textarea rows="10" @input=${(e: InputEvent) => this.textareaInput(e)}>
+        <textarea rows="9" @input=${(e: InputEvent) => this.textareaInput(e)}>
 ${this.prompt}</textarea
         >
       </div>

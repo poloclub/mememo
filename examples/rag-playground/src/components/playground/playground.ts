@@ -104,6 +104,15 @@ export class MememoPlayground extends LitElement {
   @query('mememo-prompt-box')
   promptBoxComponent: MememoPromptBox | undefined | null;
 
+  @query('.container-input')
+  containerInputElement: HTMLElement | undefined | null;
+
+  @query('.container-prompt')
+  containerPromptElement: HTMLElement | undefined | null;
+
+  @query('.container-output')
+  containerOutputElement: HTMLElement | undefined | null;
+
   @state()
   userConfigManager: UserConfigManager;
 
@@ -148,60 +157,9 @@ export class MememoPlayground extends LitElement {
   }
 
   firstUpdated() {
-    if (!this.shadowRoot || !this.queryBoxComponent || !this.promptBoxComponent)
+    if (!this.shadowRoot) {
       throw Error('No shadow root.');
-
-    const playground = this.shadowRoot.querySelector(
-      '.playground'
-    ) as HTMLElement;
-    const playgroundBBox = playground.getBoundingClientRect();
-
-    const userContainer = this.shadowRoot.querySelector(
-      '.container-input'
-    ) as HTMLElement;
-    const promptContainer = this.shadowRoot.querySelector(
-      '.container-prompt'
-    ) as HTMLElement;
-    const outputContainer = this.shadowRoot.querySelector(
-      '.container-output'
-    ) as HTMLElement;
-
-    // Add resize observers to the first column elements
-    const resizeHandler: ResizeObserverCallback = entries => {
-      const changedItems: HTMLElement[] = [];
-
-      for (const entry of entries) {
-        changedItems.push(entry.target as HTMLElement);
-      }
-
-      const outputBBoxMinHeigh = 82;
-      if (!changedItems.includes(userContainer)) {
-        // The user is resizing prompt
-        const userBBox = userContainer.getBoundingClientRect();
-        const curMaxHeight =
-          playgroundBBox.height - userBBox.height - outputBBoxMinHeigh - 175;
-        this.promptBoxComponent!.setTextareaMaxHeight(curMaxHeight);
-
-        const otherMaxHeight =
-          playgroundBBox.height - curMaxHeight - outputBBoxMinHeigh - 175;
-        this.queryBoxComponent!.setTextareaMaxHeight(otherMaxHeight);
-      } else if (!changedItems.includes(promptContainer)) {
-        // The user is resizing user
-        const promptBBox = promptContainer.getBoundingClientRect();
-        const curMaxHeight =
-          playgroundBBox.height - promptBBox.height - outputBBoxMinHeigh - 175;
-        this.queryBoxComponent!.setTextareaMaxHeight(curMaxHeight);
-
-        const otherMaxHeight =
-          playgroundBBox.height - curMaxHeight - outputBBoxMinHeigh - 175;
-        this.promptBoxComponent!.setTextareaMaxHeight(otherMaxHeight);
-      }
-    };
-
-    const resizeObserver = new ResizeObserver(resizeHandler);
-    resizeObserver.observe(userContainer);
-    resizeObserver.observe(promptContainer);
-    resizeObserver.observe(outputContainer);
+    }
 
     // Track the arrow elements
     this.arrowElements = {
@@ -353,6 +311,59 @@ export class MememoPlayground extends LitElement {
   //==========================================================================||
   //                             Private Helpers                              ||
   //==========================================================================||
+  _reComputeMaxHeights(curElement: 'input' | 'prompt') {
+    if (
+      !this.shadowRoot ||
+      !this.queryBoxComponent ||
+      !this.promptBoxComponent ||
+      !this.containerInputElement ||
+      !this.containerPromptElement
+    )
+      throw Error('No shadow root.');
+
+    const playground = this.shadowRoot.querySelector(
+      '.playground'
+    ) as HTMLElement;
+
+    const playgroundBBox = playground.getBoundingClientRect();
+    const outputBBoxMinHeigh = 82;
+    const playgroundPadding = 175;
+
+    if (curElement === 'prompt') {
+      // The user is resizing prompt
+      const userBBox = this.containerInputElement.getBoundingClientRect();
+      const curMaxHeight =
+        playgroundBBox.height -
+        userBBox.height -
+        outputBBoxMinHeigh -
+        playgroundPadding;
+      this.promptBoxComponent!.setTextareaMaxHeight(curMaxHeight);
+
+      const otherMaxHeight =
+        playgroundBBox.height -
+        curMaxHeight -
+        outputBBoxMinHeigh -
+        playgroundPadding;
+      this.queryBoxComponent!.setTextareaMaxHeight(otherMaxHeight);
+    } else if (curElement === 'input') {
+      // The user is resizing user
+      const promptBBox = this.containerPromptElement.getBoundingClientRect();
+      const curMaxHeight =
+        playgroundBBox.height -
+        promptBBox.height -
+        outputBBoxMinHeigh -
+        playgroundPadding;
+      this.queryBoxComponent!.setTextareaMaxHeight(curMaxHeight);
+
+      const otherMaxHeight =
+        playgroundBBox.height -
+        curMaxHeight -
+        outputBBoxMinHeigh -
+        playgroundPadding;
+      this.promptBoxComponent!.setTextareaMaxHeight(otherMaxHeight);
+    }
+  }
+
   _deactivateAllArrows() {
     for (const key of Object.values(Arrow)) {
       this.arrowElements[key]?.classList.remove('activated');
@@ -450,7 +461,7 @@ export class MememoPlayground extends LitElement {
     }
 
     runRequest.then(
-      async message => {
+      message => {
         switch (message.command) {
           case 'finishTextGen': {
             // Success
@@ -461,9 +472,9 @@ export class MememoPlayground extends LitElement {
               console.info(message.payload.result);
             }
 
-            await new Promise<void>(resolve => {
-              setTimeout(resolve, 5000);
-            });
+            // await new Promise<void>(resolve => {
+            //   setTimeout(resolve, 5000);
+            // });
 
             this.llmOutput = message.payload.result;
 
@@ -493,6 +504,7 @@ export class MememoPlayground extends LitElement {
             @runButtonClicked=${(e: CustomEvent<string>) =>
               this.userQueryRunClickHandler(e)}
             @queryEdited=${() => this._deactivateAllArrows()}
+            @needUpdateMaxHeight=${() => this._reComputeMaxHeights('input')}
           ></mememo-query-box>
         </div>
 
@@ -542,6 +554,7 @@ export class MememoPlayground extends LitElement {
               this.promptRunClickHandler(e);
             }}
             @promptEdited=${() => this._deactivateAllArrows()}
+            @needUpdateMaxHeight=${() => this._reComputeMaxHeights('prompt')}
           ></mememo-prompt-box>
         </div>
 

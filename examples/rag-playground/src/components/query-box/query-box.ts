@@ -29,6 +29,22 @@ export class MememoQueryBox extends LitElement {
     this.userQuery = this.defaultQuery;
   }
 
+  firstUpdated() {
+    if (!this.shadowRoot) {
+      throw Error('no shadow root!');
+    }
+
+    // Tell parent to recompute the max size of different elements
+    const textareaElement = this.shadowRoot.querySelector('textarea');
+    textareaElement?.addEventListener('mousedown', () => {
+      const event = new Event('needUpdateMaxHeight', {
+        bubbles: true,
+        composed: true
+      });
+      this.dispatchEvent(event);
+    });
+  }
+
   /**
    * This method is called before new DOM is updated and rendered
    * @param changedProperties Property that has been changed

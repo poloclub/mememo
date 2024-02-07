@@ -32,8 +32,9 @@
   display: grid;
   grid-template-columns: 1fr min-content 1fr;
   grid-template-rows: 1fr min-content 1fr;
-  height: calc(100vh - 5px);
-  max-height: 820px;
+  height: 100vh;
+  /* height: calc(100vh - 5px); */
+  /* max-height: 820px; */
   width: 100vw;
   box-sizing: border-box;
   overflow-x: hidden;
@@ -66,8 +67,8 @@
     /* border: 1px solid var(--gray-400); */
     background-color: white;
 
-    width: min(1050px, 100vw - 50px);
-    height: min(650px, 100vw - 50px);
+    width: min(1200px, 100vw - 100px);
+    height: min(900px, 100vh - 100px);
   }
 
   .app-title {

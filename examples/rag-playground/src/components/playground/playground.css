@@ -11,9 +11,9 @@
 
   grid-template-rows:
     minmax(min-content, 100px)
-    40px
+    35px
     minmax(min-content, 100px)
-    90px
+    80px
     1fr;
 
   grid-template-columns:
@@ -21,7 +21,7 @@
     45px
     minmax(min-content, 105px)
     55px
-    minmax(300px, 400px);
+    minmax(300px, 450px);
 
   --arrow-color: var(--gray-300);
   --arrow-color-activated: var(--blue-300);
