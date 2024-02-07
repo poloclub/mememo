@@ -160,15 +160,23 @@ export class MememoPlayground extends LitElement {
       if (!changedItems.includes(userContainer)) {
         // The user is resizing prompt
         const userBBox = userContainer.getBoundingClientRect();
-        const maxHeight =
+        const curMaxHeight =
           playgroundBBox.height - userBBox.height - outputBBoxMinHeigh - 175;
-        this.promptBoxComponent!.setTextareaMaxHeight(maxHeight);
+        this.promptBoxComponent!.setTextareaMaxHeight(curMaxHeight);
+
+        const otherMaxHeight =
+          playgroundBBox.height - curMaxHeight - outputBBoxMinHeigh - 175;
+        this.queryBoxComponent!.setTextareaMaxHeight(otherMaxHeight);
       } else if (!changedItems.includes(promptContainer)) {
         // The user is resizing user
         const promptBBox = promptContainer.getBoundingClientRect();
-        const maxHeight =
+        const curMaxHeight =
           playgroundBBox.height - promptBBox.height - outputBBoxMinHeigh - 175;
-        this.queryBoxComponent!.setTextareaMaxHeight(maxHeight);
+        this.queryBoxComponent!.setTextareaMaxHeight(curMaxHeight);
+
+        const otherMaxHeight =
+          playgroundBBox.height - curMaxHeight - outputBBoxMinHeigh - 175;
+        this.promptBoxComponent!.setTextareaMaxHeight(otherMaxHeight);
       }
     };
 
