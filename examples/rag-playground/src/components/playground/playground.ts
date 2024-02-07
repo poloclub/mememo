@@ -261,6 +261,9 @@ export class MememoPlayground extends LitElement {
 
   semanticSearchFinishedHandler(e: CustomEvent<string[]>) {
     this.relevantDocuments = e.detail;
+
+    // Start to run the complied prompt
+    // Need to wait for the prompt component to update the prompt
   }
 
   embeddingWorkerMessageHandler(e: MessageEvent<EmbeddingWorkerMessage>) {

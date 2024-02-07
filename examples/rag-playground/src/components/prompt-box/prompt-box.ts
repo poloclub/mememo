@@ -53,6 +53,10 @@ export class MememoPromptBox extends LitElement {
       changedProperties.has('relevantDocuments')
     ) {
       this.updatePrompt();
+
+      // If the update is triggered by a relevant document update, we also
+      // run the compiled prompt
+      this.runButtonClicked();
     }
   }
 
