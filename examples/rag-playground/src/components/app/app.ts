@@ -4,6 +4,7 @@ import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 
 import '../playground/playground';
 import componentCSS from './app.css?inline';
+import logoIcon from '../../images/icon-logo.svg?raw';
 
 /**
  * App element.
@@ -47,8 +48,38 @@ export class MememoRagPlayground extends LitElement {
   render() {
     return html`
       <div class="page">
-        <div class="app-container">
-          <mememo-playground></mememo-playground>
+        <div class="main-app">
+          <div class="text-left"></div>
+
+          <div class="app-wrapper">
+            <div class="app-title">
+              <div class="title-left">
+                <div class="app-icon"></div>
+                <div class="app-info">
+                  <div class="app-name">RAG Playground</div>
+                  <div class="app-tagline">
+                    <span
+                      >Prototype RAG applications in your browser! Powered
+                      by</span
+                    >
+                    <a
+                      class="mememo-logo"
+                      href="https://github.com/poloclub/mememo"
+                      target="_blank"
+                    >
+                      <span class="svg-icon">${unsafeHTML(logoIcon)}</span>
+                      <span>MeMemo</span>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <mememo-playground></mememo-playground>
+            <div class="app-tabs"></div>
+          </div>
+
+          <div class="text-right"></div>
         </div>
       </div>
     `;

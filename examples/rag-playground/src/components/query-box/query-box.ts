@@ -52,6 +52,14 @@ export class MememoQueryBox extends LitElement {
   textareaInput(e: InputEvent) {
     const textareaElement = e.currentTarget as HTMLTextAreaElement;
     this.userQuery = textareaElement.value;
+
+    // Notify the parent
+    const event = new Event('queryEdited', {
+      bubbles: true,
+      composed: true
+    });
+    this.dispatchEvent(event);
+    console.log(event);
   }
 
   runButtonClicked() {

@@ -378,6 +378,11 @@ const semanticSearch = async (
       documentDistances.push(distances[i]);
     }
   }
+
+  // await new Promise<void>(resolve => {
+  //   setTimeout(resolve, 5000);
+  // });
+
   const message: MememoWorkerMessage = {
     command: 'finishSemanticSearch',
     payload: {

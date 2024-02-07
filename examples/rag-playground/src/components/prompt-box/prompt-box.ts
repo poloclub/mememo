@@ -56,7 +56,9 @@ export class MememoPromptBox extends LitElement {
 
       // If the update is triggered by a relevant document update, we also
       // run the compiled prompt
-      this.runButtonClicked();
+      if (this.relevantDocuments && this.relevantDocuments.length > 0) {
+        this.runButtonClicked();
+      }
     }
   }
 
@@ -100,7 +102,14 @@ export class MememoPromptBox extends LitElement {
   //==========================================================================||
   textareaInput(e: InputEvent) {
     const textareaElement = e.currentTarget as HTMLTextAreaElement;
-    this.template = textareaElement.value;
+    this.prompt = textareaElement.value;
+
+    // Notify the parent
+    const event = new Event('promptEdited', {
+      bubbles: true,
+      composed: true
+    });
+    this.dispatchEvent(event);
   }
 
   runButtonClicked() {
@@ -133,14 +142,14 @@ export class MememoPromptBox extends LitElement {
           </div>
 
           <div class="button-group">
-            <button @click=${() => this.runButtonClicked()}>
-              <span class="svg-icon">${unsafeHTML(playIcon)}</span>
-              run
-            </button>
-
             <button>
               <span class="svg-icon">${unsafeHTML(expandIcon)}</span>
               view
+            </button>
+
+            <button @click=${() => this.runButtonClicked()}>
+              <span class="svg-icon">${unsafeHTML(playIcon)}</span>
+              run
             </button>
           </div>
         </div>

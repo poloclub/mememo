@@ -30,6 +30,7 @@ import '../text-viewer/text-viewer';
 import componentCSS from './playground.css?inline';
 import EmbeddingWorkerInline from '../../workers/embedding?worker&inline';
 import promptTemplatesJSON from '../../config/promptTemplates.json';
+import logoIcon from '../../images/icon-logo.svg?raw';
 
 interface DatasetInfo {
   dataURL: string;
@@ -40,6 +41,13 @@ interface DatasetInfo {
 
 enum Dataset {
   Arxiv = 'arxiv'
+}
+
+enum Arrow {
+  Search = 'search',
+  Input = 'input',
+  Document = 'document',
+  Output = 'output'
 }
 
 const promptTemplate = promptTemplatesJSON as Record<Dataset, string>;
@@ -104,6 +112,13 @@ export class MememoPlayground extends LitElement {
   textGenLocalWorkerResolve = (
     value: TextGenMessage | PromiseLike<TextGenMessage>
   ) => {};
+
+  arrowElements: Record<Arrow, HTMLElement | null> = {
+    [Arrow.Document]: null,
+    [Arrow.Input]: null,
+    [Arrow.Search]: null,
+    [Arrow.Output]: null
+  };
 
   //==========================================================================||
   //                             Lifecycle Methods                            ||
@@ -184,6 +199,22 @@ export class MememoPlayground extends LitElement {
     resizeObserver.observe(userContainer);
     resizeObserver.observe(promptContainer);
     resizeObserver.observe(outputContainer);
+
+    // Track the arrow elements
+    this.arrowElements = {
+      [Arrow.Document]: this.shadowRoot.querySelector(
+        '.flow.text-prompt'
+      ) as HTMLElement,
+      [Arrow.Input]: this.shadowRoot.querySelector(
+        '.flow.input-prompt'
+      ) as HTMLElement,
+      [Arrow.Search]: this.shadowRoot.querySelector(
+        '.flow.input-text'
+      ) as HTMLElement,
+      [Arrow.Output]: this.shadowRoot.querySelector(
+        '.flow.prompt-output'
+      ) as HTMLElement
+    };
   }
 
   /**
@@ -223,15 +254,10 @@ export class MememoPlayground extends LitElement {
       throw Error('textViewerComponent is not initialized.');
     }
 
-    this.textViewerComponent.semanticSearch(embedding, this.topK, 0.5);
-  }
+    // Loading the arrow
+    this.arrowElements[Arrow.Search]?.classList.add('running');
 
-  /**
-   * Augment the prompt using relevant documents
-   * @param relevantDocuments Documents that are relevant to the user query
-   */
-  compilePrompt(relevantDocuments: string[]) {
-    console.log(relevantDocuments);
+    this.textViewerComponent.semanticSearch(embedding, this.topK, 0.5);
   }
 
   //==========================================================================||
@@ -246,6 +272,9 @@ export class MememoPlayground extends LitElement {
 
     // Extract embeddings for the user query
     this.getEmbedding([this.userQuery]);
+
+    // Activate arrows
+    this.arrowElements[Arrow.Input]?.classList.add('activated');
   }
 
   /**
@@ -262,8 +291,10 @@ export class MememoPlayground extends LitElement {
   semanticSearchFinishedHandler(e: CustomEvent<string[]>) {
     this.relevantDocuments = e.detail;
 
-    // Start to run the complied prompt
-    // Need to wait for the prompt component to update the prompt
+    // Activate arrows
+    this.arrowElements[Arrow.Search]?.classList.remove('running');
+    this.arrowElements[Arrow.Search]?.classList.add('activated');
+    this.arrowElements[Arrow.Document]?.classList.add('activated');
   }
 
   embeddingWorkerMessageHandler(e: MessageEvent<EmbeddingWorkerMessage>) {
@@ -290,12 +321,21 @@ export class MememoPlayground extends LitElement {
   //==========================================================================||
   //                             Private Helpers                              ||
   //==========================================================================||
+  _deactivateAllArrows() {
+    for (const key of Object.values(Arrow)) {
+      this.arrowElements[key]?.classList.remove('activated');
+    }
+  }
+
   /**
    * Run the given prompt using the preferred model
    * @returns A promise of the prompt inference
    */
   _runPrompt(curPrompt: string, temperature = 0.2) {
     let runRequest: Promise<TextGenMessage>;
+
+    // Show a loader
+    this.arrowElements[Arrow.Output]?.classList.add('running');
 
     switch (this.userConfig.preferredLLM) {
       case SupportedRemoteModel['gpt-3.5']: {
@@ -378,7 +418,7 @@ export class MememoPlayground extends LitElement {
     }
 
     runRequest.then(
-      message => {
+      async message => {
         switch (message.command) {
           case 'finishTextGen': {
             // Success
@@ -389,7 +429,15 @@ export class MememoPlayground extends LitElement {
               console.info(message.payload.result);
             }
 
+            await new Promise<void>(resolve => {
+              setTimeout(resolve, 5000);
+            });
+
             this.llmOutput = message.payload.result;
+
+            // Activate arrows
+            this.arrowElements[Arrow.Output]?.classList.remove('running');
+            this.arrowElements[Arrow.Output]?.classList.add('activated');
             break;
           }
 
@@ -412,11 +460,14 @@ export class MememoPlayground extends LitElement {
           <mememo-query-box
             @runButtonClicked=${(e: CustomEvent<string>) =>
               this.userQueryRunClickHandler(e)}
+            @queryEdited=${() => this._deactivateAllArrows()}
           ></mememo-query-box>
         </div>
 
         <div class="container container-search">
-          <div class="search-box">MeMemo Search</div>
+          <div class="search-box">
+            <div class="header">MeMemo Search</div>
+          </div>
         </div>
 
         <div class="container container-text">
@@ -438,11 +489,14 @@ export class MememoPlayground extends LitElement {
             @runButtonClicked=${(e: CustomEvent<string>) => {
               this.promptRunClickHandler(e);
             }}
+            @promptEdited=${() => this._deactivateAllArrows()}
           ></mememo-prompt-box>
         </div>
 
         <div class="container container-model">
-          <div class="model-box">GPT 3.5</div>
+          <div class="model-box">
+            <div class="header">GPT 3.5</div>
+          </div>
         </div>
 
         <div class="container container-output">
@@ -451,7 +505,7 @@ export class MememoPlayground extends LitElement {
 
         <div class="flow horizontal-flow input-text">
           <div class="background">
-            <span class="line-loader hidden"></span>
+            <span class="line-loader"></span>
             <div class="start-rectangle"></div>
             <div class="end-triangle"></div>
           </div>
@@ -459,7 +513,7 @@ export class MememoPlayground extends LitElement {
 
         <div class="flow horizontal-flow text-prompt">
           <div class="background">
-            <span class="line-loader hidden"></span>
+            <span class="line-loader"></span>
             <div class="start-rectangle"></div>
             <div class="end-triangle"></div>
           </div>
@@ -467,7 +521,7 @@ export class MememoPlayground extends LitElement {
 
         <div class="flow vertical-flow input-prompt">
           <div class="background">
-            <span class="line-loader hidden"></span>
+            <span class="line-loader"></span>
             <div class="start-rectangle"></div>
             <div class="end-triangle"></div>
           </div>
@@ -475,7 +529,7 @@ export class MememoPlayground extends LitElement {
 
         <div class="flow vertical-flow prompt-output">
           <div class="background">
-            <span class="line-loader hidden"></span>
+            <span class="line-loader"></span>
             <div class="start-rectangle"></div>
             <div class="end-triangle"></div>
           </div>
