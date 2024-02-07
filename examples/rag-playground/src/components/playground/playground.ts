@@ -92,6 +92,9 @@ export class MememoPlayground extends LitElement {
   @state()
   topK = 10;
 
+  @state()
+  maxDistance = 0.25;
+
   @query('mememo-text-viewer')
   textViewerComponent: MememoTextViewer | undefined | null;
 
@@ -318,6 +321,35 @@ export class MememoPlayground extends LitElement {
     }
   }
 
+  /**
+   * Validate input and update mememo search parameters
+   * @param e Input event
+   * @param parameter Type of the parameter
+   */
+  parameterInputChanged(e: InputEvent, parameter: 'distance' | 'top-k') {
+    const element = e.currentTarget as HTMLInputElement;
+
+    if (parameter === 'distance') {
+      const value = parseFloat(element.value);
+      if (value > 0 && value < 1) {
+        this.maxDistance = value;
+      } else {
+        this.maxDistance = 0.25;
+      }
+      element.value = String(this.maxDistance);
+    }
+
+    if (parameter === 'top-k') {
+      const value = parseInt(element.value);
+      if (value > 0) {
+        this.topK = value;
+      } else {
+        this.topK = 10;
+      }
+      element.value = String(this.topK);
+    }
+  }
+
   //==========================================================================||
   //                             Private Helpers                              ||
   //==========================================================================||
@@ -466,6 +498,26 @@ export class MememoPlayground extends LitElement {
 
         <div class="container container-search">
           <div class="search-box">
+            <div class="search-top-info">
+              <span class="row"
+                >distance &lt;
+                <input
+                  id="input-distance"
+                  type="text"
+                  value="0.25"
+                  @change=${(e: InputEvent) =>
+                    this.parameterInputChanged(e, 'distance')}
+              /></span>
+              <span class="row"
+                >top-k =
+                <input
+                  id="input-top-k"
+                  type="text"
+                  value="10"
+                  @change=${(e: InputEvent) =>
+                    this.parameterInputChanged(e, 'top-k')}
+              /></span>
+            </div>
             <div class="header">MeMemo Search</div>
           </div>
         </div>

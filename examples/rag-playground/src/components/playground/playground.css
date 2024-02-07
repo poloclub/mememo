@@ -18,9 +18,9 @@
 
   grid-template-columns:
     minmax(200px, 1fr)
-    50px
-    minmax(min-content, 100px)
-    60px
+    45px
+    minmax(min-content, 105px)
+    55px
     minmax(300px, 400px);
 
   --arrow-color: var(--gray-300);
@@ -63,6 +63,10 @@
   &.container-search {
     grid-row: 1 / 2;
     grid-column: 3 / 4;
+
+    display: flex;
+    flex-flow: column;
+    align-items: center;
   }
 
   &.container-text {
@@ -381,6 +385,7 @@
   align-items: center;
   justify-content: center;
   text-align: center;
+  position: relative;
 
   .header {
     color: white;
@@ -399,4 +404,43 @@
   text-align: center;
   position: relative;
   top: -10px;
+}
+
+.search-top-info {
+  position: absolute;
+  bottom: 0px;
+  left: 50%;
+  width: 100%;
+  transform: translate(-50%, calc(100% + 5px));
+  font-size: var(--font-d3);
+  color: var(--gray-600);
+
+  display: flex;
+  flex-flow: column;
+  align-items: center;
+  line-height: 1;
+  gap: 2px;
+
+  .row {
+    display: flex;
+    flex-flow: row;
+    align-items: baseline;
+
+    & input {
+      text-align: center;
+      margin-left: 2px;
+      font-variant-numeric: tabular-nums;
+      max-width: 23px;
+      border-bottom: 2px solid var(--gray-300);
+      height: 13px;
+
+      &#input-distance {
+        max-width: 28px;
+      }
+    }
+  }
+}
+
+input {
+  all: unset;
 }
