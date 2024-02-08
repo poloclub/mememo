@@ -39,7 +39,7 @@
   box-sizing: border-box;
   overflow-x: hidden;
   position: relative;
-  background-color: hsl(216, 77%, 27%);
+  background-color: hsl(206, 75%, 17%);
 }
 
 .text-left {
@@ -67,8 +67,9 @@
     /* border: 1px solid var(--gray-400); */
     background-color: white;
 
-    width: min(1200px, 100vw - 100px);
-    height: min(900px, 100vh - 100px);
+    width: min(1300px, 100vw - 100px);
+    /* height: min(800px, 100vh - 100px); */
+    height: min(750px, 100vh - 100px);
   }
 
   .app-title {

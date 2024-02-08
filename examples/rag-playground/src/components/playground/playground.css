@@ -13,7 +13,7 @@
     minmax(min-content, 100px)
     35px
     minmax(min-content, 100px)
-    80px
+    90px
     1fr;
 
   grid-template-columns:
@@ -21,16 +21,20 @@
     45px
     minmax(min-content, 105px)
     55px
-    minmax(300px, 450px);
+    minmax(300px, 500px);
 
   --arrow-color: var(--gray-300);
-  --arrow-color-activated: var(--blue-300);
+  --arrow-color-activated: var(--blue-500);
   --border-radius: 5px;
   --block-shadow: 0px 0px 2px hsla(0, 0%, 0%, 0.1),
     0px 0px 6px hsla(0, 0%, 0%, 0.05);
   --focus-border-color: var(--blue-200);
   --box-padding-v: 10px;
   --box-padding-h: 10px;
+
+  --header-size: var(--font-u5);
+  --header-secondary-size: 1rem;
+  --content-text-size: var(--font-d1);
 }
 
 .container {
@@ -353,7 +357,7 @@
 }
 
 .header {
-  font-size: var(--font-u1);
+  font-size: var(--header-size);
   color: var(--gray-600);
   line-height: 1.25;
   font-weight: 800;
@@ -378,7 +382,7 @@
 .search-box {
   border-radius: var(--border-radius);
   box-shadow: var(--block-shadow);
-  border: 1px solid hsla(0deg, 0%, 0%, 0.08);
+  /* border: 1px solid hsla(0deg, 0%, 0%, 0.08); */
   background-color: var(--gray-900);
   padding: 5px 10px;
   display: flex;
@@ -412,7 +416,7 @@
   left: 50%;
   width: 100%;
   transform: translate(-50%, calc(100% + 5px));
-  font-size: var(--font-d3);
+  font-size: var(--font-d2);
   color: var(--gray-600);
 
   display: flex;
@@ -430,12 +434,12 @@
       text-align: center;
       margin-left: 2px;
       font-variant-numeric: tabular-nums;
-      max-width: 23px;
+      max-width: 28px;
       border-bottom: 2px solid var(--gray-300);
       height: 13px;
 
       &#input-distance {
-        max-width: 28px;
+        max-width: 32px;
       }
     }
   }

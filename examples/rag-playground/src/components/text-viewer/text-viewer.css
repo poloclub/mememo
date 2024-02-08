@@ -24,13 +24,13 @@
 
 .header {
   font-weight: 800;
-  font-size: var(--font-u1);
+  font-size: var(--header-size);
   line-height: 1;
 }
 
 .description {
   line-height: 1;
-  font-size: var(--font-d1);
+  font-size: var(--header-secondary-size);
   font-variant-numeric: tabular-nums;
 }
 
@@ -193,7 +193,7 @@
 }
 
 .content-list {
-  font-size: var(--font-d2);
+  font-size: var(--content-text-size);
 
   display: flex;
   flex-direction: column;

@@ -18,7 +18,7 @@ textarea {
   height: auto;
   box-sizing: border-box;
   font-family: inherit;
-  font-size: var(--font-d2);
+  font-size: var(--content-text-size);
   resize: vertical;
   min-height: 60px;
 
@@ -33,7 +33,7 @@ textarea {
 }
 
 .header {
-  font-size: var(--font-u1);
+  font-size: var(--header-size);
   color: var(--gray-600);
   line-height: 1;
 
@@ -56,7 +56,7 @@ textarea {
   }
 
   .token-count {
-    font-size: var(--font-d2);
+    font-size: var(--font-d1);
     color: var(--gray-600);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -98,11 +98,9 @@ button {
 
   display: flex;
   line-height: 1;
-  font-size: var(--font-d2);
   padding: 4px 6px;
   border-radius: 5px;
   white-space: nowrap;
-  height: var(--font-d2);
 
   cursor: pointer;
   user-select: none;
@@ -113,7 +111,8 @@ button {
   display: flex;
   flex-flow: row;
   align-items: center;
-  font-size: var(--font-d1);
+  font-size: var(--header-secondary-size);
+  height: 1em;
 
   &:hover {
     background-color: color-mix(in lab, var(--gray-300), white 30%);

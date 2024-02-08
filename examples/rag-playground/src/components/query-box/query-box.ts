@@ -75,7 +75,6 @@ export class MememoQueryBox extends LitElement {
       composed: true
     });
     this.dispatchEvent(event);
-    console.log(event);
   }
 
   runButtonClicked() {
