@@ -82,7 +82,7 @@ interface HNSWConfig {
   seed?: number;
 
   /** Whether to use indexedDB. If this is false, store all embeddings in
-   * the memory. Default to false so that MeMemo can be used in node.js.
+   * the memory. Default to true.
    */
   useIndexedDB?: boolean;
 }
@@ -493,7 +493,7 @@ export class HNSW {
   /** Current entry point of the graph */
   entryPointKey: string | null = null;
 
-  useIndexedDB = false;
+  useIndexedDB = true;
 
   /**
    * Constructs a new instance of the class.
@@ -1147,11 +1147,19 @@ export class HNSW {
 
     candidates.sort((a, b) => a.distance - b.distance);
 
-    if (k === undefined) {
-      return candidates;
-    } else {
-      return candidates.slice(0, k);
+    const topKElements = k === undefined ? candidates : candidates.slice(0, k);
+
+    // Return keys and distances
+    const keys = [];
+    const distances = [];
+    for (const element of topKElements) {
+      keys.push(element.key);
+      distances.push(element.distance);
     }
+    return {
+      keys,
+      distances
+    };
   }
 
   /**

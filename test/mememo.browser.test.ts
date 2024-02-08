@@ -469,11 +469,15 @@ describe('query()', () => {
 
     // Check query results
     for (const q of query1) {
-      const myResults = await hnsw.query(embeddingData.embeddings[q.i], q.k);
-      expect(myResults.length).toBe(q.result.length);
-      for (const [i, myResult] of myResults.entries()) {
-        expect(myResult.key).toBe(q.result[i][0]);
-        expect(myResult.distance).toBeCloseTo(q.result[i][1], 4);
+      const { keys, distances } = await hnsw.query(
+        embeddingData.embeddings[q.i],
+        q.k
+      );
+      expect(keys.length).toBe(q.result.length);
+
+      for (const [i, key] of keys.entries()) {
+        expect(key).toBe(q.result[i][0]);
+        expect(distances[i]).toBeCloseTo(q.result[i][1], 4);
       }
     }
   });
