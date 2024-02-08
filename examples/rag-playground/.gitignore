@@ -26,3 +26,4 @@ dist-ssr
 pnpm-lock.yaml
 .vercel
 notebooks
+public/data

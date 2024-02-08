@@ -12,12 +12,17 @@ import componentCSS from './text-viewer.css?inline';
 import MememoWorkerInline from '../../workers/mememo-worker?worker&inline';
 import searchIcon from '../../images/icon-search.svg?raw';
 import crossIcon from '../../images/icon-cross-thick.svg?raw';
+import downloadIcon from '../../images/icon-download.svg?raw';
 import crossSmallIcon from '../../images/icon-cross.svg?raw';
 
 const MAX_DOCUMENTS_IN_MEMORY = 1000;
 const DOCUMENT_INCREMENT = 100;
 const LEXICAL_SEARCH_LIMIT = 2000;
 const numberFormatter = d3.format(',');
+
+const startLoadingTime = new Date().getUTCSeconds();
+const loadingTimes: number[] = [];
+const TRACK_LOADING_TIME = false;
 
 /**
  * Text viewer element.
@@ -237,6 +242,12 @@ export class MememoTextViewer extends LitElement {
           this.shownDocuments = [...this.shownDocuments, ...documents];
         }
 
+        // Track the loading time
+        if (TRACK_LOADING_TIME) {
+          const now = new Date().getUTCSeconds();
+          loadingTimes.push(now - startLoadingTime);
+        }
+
         if (e.data.payload.isLastBatch) {
           // Mark the loading has completed
           this.markMememoFinishedLoading();
@@ -248,6 +259,11 @@ export class MememoTextViewer extends LitElement {
           //   payload: { requestID: 0 }
           // };
           // this.mememoWorker.postMessage(message);
+
+          // Download the loading times
+          if (TRACK_LOADING_TIME) {
+            downloadJSON(loadingTimes, undefined, 'loading-times.json');
+          }
         }
         break;
       }
@@ -304,13 +320,35 @@ export class MememoTextViewer extends LitElement {
 
       case 'finishExportIndex': {
         const indexJSON = e.data.payload.indexJSON;
-        downloadJSON(indexJSON, undefined, 'index.json');
+
+        // Download a compressed file
+        compressTextGzip(JSON.stringify(indexJSON)).then(
+          value => {
+            downloadBlob(value, 'mememo-index.json.gzip');
+          },
+          () => {}
+        );
+
         break;
       }
 
       default: {
         console.error(`Unknown command ${e.data.command}`);
       }
+    }
+  }
+
+  /**
+   * Export and download the created index
+   */
+  downloadButtonClicked() {
+    // Export the index to a json file
+    if (this.isMememoFinishedLoading) {
+      const message: MememoWorkerMessage = {
+        command: 'startExportIndex',
+        payload: { requestID: 0 }
+      };
+      this.mememoWorker.postMessage(message);
     }
   }
 
@@ -429,6 +467,11 @@ export class MememoTextViewer extends LitElement {
         <div class="header-bar">
           <div class="header">MeMemo Database</div>
           <div class="description">${this.datasetNameDisplay}</div>
+          <div class="button-group">
+            <button @click=${() => this.downloadButtonClicked()}>
+              <span class="svg-icon">${unsafeHTML(downloadIcon)}</span>
+            </button>
+          </div>
         </div>
 
         <div class="search-bar-container">
@@ -500,3 +543,31 @@ declare global {
     'mememo-text-viewer': MememoTextViewer;
   }
 }
+
+const downloadBlob = (blob: Blob, filename: string) => {
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+};
+
+const compressTextGzip = async (text: string): Promise<Blob> => {
+  // Create a stream from the text
+  const textBlob = new Blob([text], { type: 'text/plain' });
+  const textStream = textBlob.stream();
+
+  // Create a GZIP CompressionStream
+  const gzipStream = new CompressionStream('gzip');
+
+  // Pipe the text stream through the gzip compressor
+  const compressedStream = textStream.pipeThrough(gzipStream);
+
+  // Convert the compressed stream back to a Blob
+  const compressedBlob = await new Response(compressedStream).blob();
+
+  return compressedBlob;
+};

@@ -1,6 +1,7 @@
 import { LitElement, css, unsafeCSS, html, PropertyValues } from 'lit';
 import { customElement, property, state, query } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
 import { EmbeddingModel } from '../../workers/embedding';
 import {
   UserConfigManager,
@@ -14,6 +15,7 @@ import { textGenGpt } from '../../llms/gpt';
 import { textGenMememo } from '../../llms/mememo-gen';
 import { textGenGemini } from '../../llms/gemini';
 import TextGenLocalWorkerInline from '../../llms/web-llm?worker&inline';
+import { promptTemplates } from '../../config/promptTemplates';
 
 import type { TextGenMessage } from '../../llms/gpt';
 import type { EmbeddingWorkerMessage } from '../../workers/embedding';
@@ -29,18 +31,20 @@ import '../text-viewer/text-viewer';
 
 import componentCSS from './playground.css?inline';
 import EmbeddingWorkerInline from '../../workers/embedding?worker&inline';
-import promptTemplatesJSON from '../../config/promptTemplates.json';
 import logoIcon from '../../images/icon-logo.svg?raw';
 
 interface DatasetInfo {
   dataURL: string;
-  indexURL: string;
+  indexURL?: string;
   datasetName: string;
   datasetNameDisplay: string;
 }
 
 enum Dataset {
-  Arxiv = 'arxiv'
+  arXiv10k = 'arxiv-10k',
+  arXiv120k = 'arxiv-120k',
+  DiffusionDB1m = 'diffusiondb-1m',
+  accident3k = 'accident-3k'
 }
 
 enum Arrow {
@@ -50,14 +54,35 @@ enum Arrow {
   Output = 'output'
 }
 
-const promptTemplate = promptTemplatesJSON as Record<Dataset, string>;
+const promptTemplate = promptTemplates as Record<Dataset, string>;
 
 const datasets: Record<Dataset, DatasetInfo> = {
-  [Dataset.Arxiv]: {
-    dataURL: '/data/ml-arxiv-papers-1000.ndjson.gzip',
-    indexURL: '/data/ml-arxiv-papers-1000-index.json',
-    datasetName: 'ml-arxiv-papers',
-    datasetNameDisplay: 'ML arXiv Abstracts (1k)'
+  [Dataset.arXiv10k]: {
+    indexURL: '/data/ml-arxiv-papers-10k-index.json.gzip',
+    dataURL: '/data/ml-arxiv-papers-10k.ndjson.gzip',
+    datasetName: 'ml-arxiv-papers-10k',
+    datasetNameDisplay: 'ML arXiv Abstracts (10k)'
+  },
+
+  [Dataset.arXiv120k]: {
+    indexURL: '/data/ml-arxiv-papers-120k-index.json.gzip',
+    dataURL: '/data/ml-arxiv-papers-120k.ndjson.gzip',
+    datasetName: 'ml-arxiv-papers-120k',
+    datasetNameDisplay: 'ML arXiv Abstracts (120k)'
+  },
+
+  [Dataset.DiffusionDB1m]: {
+    indexURL: '/data/diffusiondb-pormpts-1m-index.json.gzip',
+    dataURL: '/data/diffusiondb-pormpts-1m.ndjson.gzip',
+    datasetName: 'diffusiondb-pormpts-1m',
+    datasetNameDisplay: 'DiffusionDB Prompts (1M)'
+  },
+
+  [Dataset.accident3k]: {
+    indexURL: '/data/accident-3k-index.json.gzip',
+    dataURL: '/data/accident-3k.ndjson.gzip',
+    datasetName: 'accidents-3k',
+    datasetNameDisplay: 'AI Accidents (3k)'
   }
 };
 
@@ -81,6 +106,9 @@ export class MememoPlayground extends LitElement {
 
   @state()
   llmOutput = '';
+
+  @property()
+  curDataset: Dataset = Dataset.arXiv120k;
 
   embeddingWorker: Worker;
   embeddingWorkerRequestCount = 0;
@@ -536,10 +564,10 @@ export class MememoPlayground extends LitElement {
 
         <div class="container container-text">
           <mememo-text-viewer
-            dataURL=${datasets['arxiv'].dataURL}
-            indexURL=${datasets['arxiv'].indexURL}
-            datasetName=${datasets['arxiv'].datasetName}
-            datasetNameDisplay=${datasets['arxiv'].datasetNameDisplay}
+            dataURL=${datasets[this.curDataset].dataURL}
+            indexURL=${ifDefined(datasets[this.curDataset].indexURL)}
+            datasetName=${datasets[this.curDataset].datasetName}
+            datasetNameDisplay=${datasets[this.curDataset].datasetNameDisplay}
             @semanticSearchFinished=${(e: CustomEvent<string[]>) =>
               this.semanticSearchFinishedHandler(e)}
           ></mememo-text-viewer>
@@ -547,7 +575,7 @@ export class MememoPlayground extends LitElement {
 
         <div class="container container-prompt">
           <mememo-prompt-box
-            template=${promptTemplate[Dataset.Arxiv]}
+            template=${promptTemplate[this.curDataset]}
             userQuery=${this.userQuery}
             .relevantDocuments=${this.relevantDocuments}
             @runButtonClicked=${(e: CustomEvent<string>) => {

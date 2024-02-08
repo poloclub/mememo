@@ -205,18 +205,16 @@
   overscroll-behavior: none;
 
   .item {
-    line-height: 1.2;
+    line-height: 1.25;
     width: 100%;
-    padding: 0 calc(var(--search-inner-padding-h) + var(--box-padding-h));
+    padding: 4px calc(var(--search-inner-padding-h) + var(--box-padding-h));
     border-bottom: 1px solid var(--gray-200);
     cursor: default;
-    padding-bottom: 3px;
-    padding-top: 3px;
     box-sizing: border-box;
     position: relative;
 
     &:has(.distance-overlay:not([is-hidden])) {
-      padding-right: 56px;
+      padding-right: 60px;
     }
 
     &[clamp-line] {
@@ -242,15 +240,11 @@
       position: absolute;
       top: 0px;
       right: 0px;
-      /* transform: translate(0, -50%); */
-      /* float: right; */
 
       font-size: var(--font-d3);
       font-variant-numeric: tabular-nums;
       padding: 2px 5px;
       border-bottom-left-radius: 4px;
-      /* border-top-left-radius: 5px; */
-      /* border-radius: 5px; */
       text-align: right;
 
       background-color: color-mix(in lab, var(--blue-100) 70%, transparent 30%);
@@ -346,5 +340,68 @@
     border-color: color-mix(in lab, var(--gray-400) 100%, white 30%);
     border-right-color: var(--gray-600);
     animation: circle-loader-animation 1s infinite linear;
+  }
+}
+
+.svg-icon {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 1em;
+  height: 1em;
+
+  color: currentColor;
+  transition: transform 80ms linear;
+  transform-origin: center;
+
+  & svg {
+    fill: currentColor;
+    width: 100%;
+    height: 100%;
+  }
+}
+
+.button-group {
+  display: flex;
+  flex-flow: row;
+  align-items: center;
+  gap: 8px;
+}
+
+button {
+  all: unset;
+
+  display: flex;
+  line-height: 1;
+  padding: 4px 6px;
+  border-radius: 5px;
+  white-space: nowrap;
+
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+
+  background-color: color-mix(in lab, var(--gray-200), white 20%);
+  color: var(--gray-800);
+  display: flex;
+  flex-flow: row;
+  align-items: center;
+  font-size: var(--header-secondary-size);
+  height: 1em;
+
+  &:hover {
+    background-color: color-mix(in lab, var(--gray-300), white 30%);
+  }
+
+  &:active {
+    background-color: color-mix(in lab, var(--gray-300), white 20%);
+  }
+
+  .svg-icon {
+    position: relative;
+    top: 1px;
+    color: var(--gray-700);
+    width: 14px;
+    height: 14px;
   }
 }

@@ -88,7 +88,8 @@ export type MememoWorkerMessage =
     };
 
 const DEV_MODE = import.meta.env.DEV;
-const POINT_THRESHOLD = 100;
+const POINT_THRESHOLD_INDEX = 500;
+const POINT_THRESHOLD_SKIP_INDEX = 500;
 
 // Data loading
 let pendingDataPoints: DocumentRecord[] = [];
@@ -105,7 +106,8 @@ let documentDBPromise: PromiseExtended<Table<DocumentDBEntry, string>> | null =
 const hnswIndex = new HNSW({
   distanceFunction: 'cosine-normalized',
   seed: 123,
-  useIndexedDB: true
+  useIndexedDB: true,
+  efConstruction: 40
 });
 
 //==========================================================================||
@@ -185,10 +187,15 @@ const startLoadCompressedData = async (url: string, indexURL?: string) => {
   let skipIndex = false;
   if (indexURL !== undefined) {
     try {
-      const indexJSON = (await (
-        await fetch(indexURL)
-      ).json()) as MememoIndexJSON;
+      console.time('Load index');
+      const ds = new DecompressionStream('gzip');
+      const response = await fetch(indexURL);
+      const blobIn = await response.blob();
+      const streamIn = blobIn.stream().pipeThrough(ds);
+      const blobOut = await new Response(streamIn).blob();
+      const indexJSON = JSON.parse(await blobOut.text()) as MememoIndexJSON;
       hnswIndex.loadIndex(indexJSON);
+      console.timeEnd('Load index');
       skipIndex = true;
     } catch (error) {
       console.error(error);
@@ -241,10 +248,14 @@ const processPointStream = async (
   const documentDB = await documentDBPromise;
 
   const documentPoint: DocumentRecord = {
-    text: point[0],
-    embedding: point[1],
-    id: String(loadedPointCount)
+    id: String(point[0]),
+    text: point[1],
+    embedding: point[2]
   };
+
+  const pointThreshold = skipIndex
+    ? POINT_THRESHOLD_SKIP_INDEX
+    : POINT_THRESHOLD_INDEX;
 
   // Index the point in flex
   pendingDataPoints.push(documentPoint);
@@ -252,7 +263,7 @@ const processPointStream = async (
 
   loadedPointCount += 1;
 
-  if (pendingDataPoints.length >= POINT_THRESHOLD) {
+  if (pendingDataPoints.length >= pointThreshold) {
     // Batched index the documents to IndexedDB and MeMemo
     const keys = pendingDataPoints.map(d => d.id);
     const embeddings = pendingDataPoints.map(d => d.embedding);
@@ -362,10 +373,7 @@ const semanticSearch = async (
     throw Error('documentDB is null');
   }
   const documentDB = await documentDBPromise;
-  const queryResults = await hnswIndex.query(embedding, topK);
-
-  const distances = queryResults.map(d => d.distance);
-  const keys = queryResults.map(d => d.key);
+  const { keys, distances } = await hnswIndex.query(embedding, topK);
 
   // Batched query documents from indexedDB
   const results = await documentDB.bulkGet(keys);

@@ -2,7 +2,8 @@
  * Type definitions
  */
 
-export type DocumentRecordStreamData = [string, number[]];
+/** [unique key, content, embedding] */
+export type DocumentRecordStreamData = [number, string, number[]];
 
 export interface DocumentDBEntry {
   id: string;
