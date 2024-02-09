@@ -97,6 +97,11 @@ let pendingDataPoints: DocumentRecord[] = [];
 let loadedPointCount = 0;
 let lastDrawnPoints: DocumentRecord[] | null = null;
 
+let finishedLoadingResolve = () => {};
+const finishedLoading = new Promise<void>(resolve => {
+  finishedLoadingResolve = resolve;
+});
+
 // Indexes
 // const flexIndex: Flexsearch.Index = new Flexsearch.Index({
 //   tokenize: 'forward'
@@ -329,6 +334,7 @@ const pointStreamFinished = () => {
 
   lastDrawnPoints = pendingDataPoints.slice();
   pendingDataPoints = [];
+  finishedLoadingResolve();
 };
 
 /**
@@ -381,6 +387,8 @@ const semanticSearch = async (
     throw Error('documentDB is null');
   }
   const documentDB = await documentDBPromise;
+  await finishedLoading;
+
   const { keys, distances } = await hnswIndex.query(embedding, topK);
 
   // Batched query documents from indexedDB

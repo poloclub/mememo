@@ -29,8 +29,8 @@ import '../output-box/output-box';
 import '../text-viewer/text-viewer';
 
 import componentCSS from './playground.css?inline';
-// import TextGenLocalWorkerInline from '../../llms/web-llm?worker&inline';
-// import EmbeddingWorkerInline from '../../workers/embedding?worker';
+import TextGenLocalWorkerInline from '../../llms/web-llm?worker&inline';
+import EmbeddingWorkerInline from '../../workers/embedding?worker';
 import logoIcon from '../../images/icon-logo.svg?raw';
 
 interface DatasetInfo {
@@ -110,7 +110,7 @@ export class MememoPlayground extends LitElement {
   @state()
   llmOutput = '';
 
-  // embeddingWorker: Worker;
+  embeddingWorker: Worker;
   embeddingWorkerRequestCount = 0;
   get embeddingWorkerRequestID() {
     this.embeddingWorkerRequestCount++;
@@ -148,7 +148,7 @@ export class MememoPlayground extends LitElement {
   userConfig!: UserConfig;
 
   @property({ attribute: false })
-  // textGenLocalWorker: Worker;
+  textGenLocalWorker: Worker;
   textGenLocalWorkerResolve = (
     value: TextGenMessage | PromiseLike<TextGenMessage>
   ) => {};
@@ -166,16 +166,16 @@ export class MememoPlayground extends LitElement {
   constructor() {
     super();
 
-    // this.embeddingWorker = new EmbeddingWorkerInline();
-    // this.embeddingWorker.addEventListener(
-    //   'message',
-    //   (e: MessageEvent<EmbeddingWorkerMessage>) => {
-    //     this.embeddingWorkerMessageHandler(e);
-    //   }
-    // );
+    this.embeddingWorker = new EmbeddingWorkerInline();
+    this.embeddingWorker.addEventListener(
+      'message',
+      (e: MessageEvent<EmbeddingWorkerMessage>) => {
+        this.embeddingWorkerMessageHandler(e);
+      }
+    );
 
     // Initialize the local llm worker
-    // this.textGenLocalWorker = new TextGenLocalWorkerInline();
+    this.textGenLocalWorker = new TextGenLocalWorkerInline();
 
     // Set up the user config store
     const updateUserConfig = (userConfig: UserConfig) => {
@@ -232,7 +232,7 @@ export class MememoPlayground extends LitElement {
         windowURL: window.location.href
       }
     };
-    // this.embeddingWorker.postMessage(message);
+    this.embeddingWorker.postMessage(message);
   }
 
   /**
@@ -462,7 +462,7 @@ export class MememoPlayground extends LitElement {
             temperature: temperature
           }
         };
-        // this.textGenLocalWorker.postMessage(message);
+        this.textGenLocalWorker.postMessage(message);
         break;
       }
 

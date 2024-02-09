@@ -1,10 +1,7 @@
 import { pipeline, env } from '@xenova/transformers';
 import type { FeatureExtractionPipeline } from '@xenova/transformers';
 
-// Disable the loading of remote models from the Hugging Face Hub:
 env.allowRemoteModels = false;
-
-// env.localModelPath = 'http://localhost:3000/models/';
 
 export enum EmbeddingModel {
   gteSmall = 'gte-small'
@@ -87,11 +84,11 @@ export const startExtractEmbedding = async (
   windowURL: string
 ) => {
   try {
-    // Specify a custom location for models (defaults to '/models/').
-    console.log(windowURL);
+    // Specify a custom location for TF models (need to use absolute path here)
+    env.localModelPath = `${windowURL}models/`;
 
     if (!extractorMap.has(model)) {
-      extractorMap.set(model, pipeline('feature-extraction', 'model'));
+      extractorMap.set(model, pipeline('feature-extraction', model));
     }
     const extractor = await extractorMap.get(model)!;
     const output = await extractor(sentences, {
