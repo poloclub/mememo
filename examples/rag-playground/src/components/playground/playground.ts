@@ -33,6 +33,8 @@ import TextGenLocalWorkerInline from '../../llms/web-llm?worker&inline';
 import EmbeddingWorkerInline from '../../workers/embedding?worker';
 import logoIcon from '../../images/icon-logo.svg?raw';
 
+const STORE_ENDPOINT = 'https://pub-4eccf317e01e4aa3a5caa9991c8b1e2a.r2.dev/';
+
 interface DatasetInfo {
   dataURL: string;
   indexURL?: string;
@@ -40,9 +42,12 @@ interface DatasetInfo {
   datasetNameDisplay: string;
 }
 
-enum Dataset {
+export enum Dataset {
   arXiv10k = 'arxiv-10k',
   arXiv120k = 'arxiv-120k',
+  DiffusionDB10k = 'diffusiondb-10k',
+  DiffusionDB100k = 'diffusiondb-100k',
+  DiffusionDB500k = 'diffusiondb-500k',
   DiffusionDB1m = 'diffusiondb-1m',
   accident3k = 'accident-3k'
 }
@@ -58,29 +63,50 @@ const promptTemplate = promptTemplates as Record<Dataset, string>;
 
 const datasets: Record<Dataset, DatasetInfo> = {
   [Dataset.arXiv10k]: {
-    indexURL: '/data/ml-arxiv-papers-10k-index.json.gzip',
-    dataURL: '/data/ml-arxiv-papers-10k.ndjson.gzip',
+    indexURL: STORE_ENDPOINT + 'ml-arxiv-papers-index-10k.json.gzip',
+    dataURL: STORE_ENDPOINT + 'ml-arxiv-papers-10k.ndjson.gzip',
     datasetName: 'ml-arxiv-papers-10k',
     datasetNameDisplay: 'ML arXiv Abstracts (10k)'
   },
 
   [Dataset.arXiv120k]: {
-    indexURL: '/data/ml-arxiv-papers-120k-index.json.gzip',
-    dataURL: '/data/ml-arxiv-papers-120k.ndjson.gzip',
+    indexURL: STORE_ENDPOINT + 'ml-arxiv-papers-index-120k.json.gzip',
+    dataURL: STORE_ENDPOINT + 'ml-arxiv-papers-120k.ndjson.gzip',
     datasetName: 'ml-arxiv-papers-120k',
     datasetNameDisplay: 'ML arXiv Abstracts (120k)'
   },
 
+  [Dataset.DiffusionDB10k]: {
+    indexURL: STORE_ENDPOINT + 'diffusiondb-prompt-index-10k.json.gzip',
+    dataURL: STORE_ENDPOINT + 'diffusiondb-prompt-10k.ndjson.gzip',
+    datasetName: 'diffusiondb-prompts-10k',
+    datasetNameDisplay: 'DiffusionDB Prompts (10k)'
+  },
+
+  [Dataset.DiffusionDB100k]: {
+    indexURL: STORE_ENDPOINT + 'diffusiondb-prompt-index-100k.json.gzip',
+    dataURL: STORE_ENDPOINT + 'diffusiondb-prompt-100k.ndjson.gzip',
+    datasetName: 'diffusiondb-prompts-100k',
+    datasetNameDisplay: 'DiffusionDB Prompts (100k)'
+  },
+
+  [Dataset.DiffusionDB500k]: {
+    // indexURL: '/data/diffusiondb-prompts-index-1m.json.gzip',
+    dataURL: '/data/diffusiondb-prompt-500k.ndjson.gzip',
+    datasetName: 'diffusiondb-prompts-500k',
+    datasetNameDisplay: 'DiffusionDB Prompts (500k)'
+  },
+
   [Dataset.DiffusionDB1m]: {
-    // indexURL: '/data/diffusiondb-prompts-1m-index.json.gzip',
+    // indexURL: '/data/diffusiondb-prompts-index-1m.json.gzip',
     dataURL: '/data/diffusiondb-prompt-1m.ndjson.gzip',
     datasetName: 'diffusiondb-prompts-1m',
     datasetNameDisplay: 'DiffusionDB Prompts (1M)'
   },
 
   [Dataset.accident3k]: {
-    indexURL: '/data/accident-3k-index.json.gzip',
-    dataURL: '/data/accident-3k.ndjson.gzip',
+    indexURL: STORE_ENDPOINT + 'accident-index-3k.json.gzip',
+    dataURL: STORE_ENDPOINT + 'accident-3k.ndjson.gzip',
     datasetName: 'accidents-3k',
     datasetNameDisplay: 'AI Accidents (3k)'
   }
@@ -211,6 +237,13 @@ export class MememoPlayground extends LitElement {
    * @param changedProperties Property that has been changed
    */
   willUpdate(changedProperties: PropertyValues<this>) {}
+
+  disconnectedCallback(): void {
+    // Need to terminal workers to avoid aysnc write to indexedDB
+    this.embeddingWorker.terminate();
+    this.textGenLocalWorker.terminate();
+    this.textViewerComponent?.mememoWorker.terminate();
+  }
 
   //==========================================================================||
   //                              Custom Methods                              ||

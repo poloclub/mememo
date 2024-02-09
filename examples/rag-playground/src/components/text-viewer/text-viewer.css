@@ -207,7 +207,7 @@
   .item {
     line-height: 1.25;
     width: 100%;
-    padding: 4px calc(var(--search-inner-padding-h) + var(--box-padding-h));
+    padding: 5px calc(var(--search-inner-padding-h) + var(--box-padding-h));
     border-bottom: 1px solid var(--gray-200);
     cursor: default;
     box-sizing: border-box;
@@ -218,12 +218,14 @@
     }
 
     &[clamp-line] {
-      display: -webkit-box;
-      -webkit-box-orient: vertical;
-      -webkit-line-clamp: 4;
-      overflow: hidden;
-      flex-shrink: 0;
-      -webkit-box-pack: end;
+      .item-content {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 4;
+        overflow: hidden;
+        flex-shrink: 0;
+        -webkit-box-pack: end;
+      }
     }
 
     &:hover {

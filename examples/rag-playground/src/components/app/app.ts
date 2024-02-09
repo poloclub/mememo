@@ -5,6 +5,7 @@ import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import '../playground/playground';
 import componentCSS from './app.css?inline';
 import logoIcon from '../../images/icon-logo.svg?raw';
+import { Dataset } from '../playground/playground';
 
 /**
  * App element.
@@ -15,12 +16,15 @@ export class MememoRagPlayground extends LitElement {
   //==========================================================================||
   //                              Class Properties                            ||
   //==========================================================================||
+  @state()
+  curDataset: Dataset;
 
   //==========================================================================||
   //                             Lifecycle Methods                            ||
   //==========================================================================||
   constructor() {
     super();
+    this.curDataset = Dataset.arXiv10k;
   }
 
   /**
@@ -37,6 +41,11 @@ export class MememoRagPlayground extends LitElement {
   //==========================================================================||
   //                              Event Handlers                              ||
   //==========================================================================||
+  tabButtonClicked(dataset: Dataset) {
+    if (dataset !== this.curDataset) {
+      this.curDataset = dataset;
+    }
+  }
 
   //==========================================================================||
   //                             Private Helpers                              ||
@@ -46,6 +55,59 @@ export class MememoRagPlayground extends LitElement {
   //                           Templates and Styles                           ||
   //==========================================================================||
   render() {
+    // Compile the playground
+    let playground = html``;
+
+    switch (this.curDataset) {
+      case Dataset.arXiv10k: {
+        playground = html`<mememo-playground
+          curDataset=${this.curDataset}
+        ></mememo-playground>`;
+        break;
+      }
+
+      case Dataset.arXiv120k: {
+        playground = html`<mememo-playground
+          curDataset=${this.curDataset}
+        ></mememo-playground>`;
+        break;
+      }
+
+      case Dataset.DiffusionDB10k: {
+        playground = html`<mememo-playground
+          curDataset=${this.curDataset}
+        ></mememo-playground>`;
+        break;
+      }
+
+      case Dataset.DiffusionDB100k: {
+        playground = html`<mememo-playground
+          curDataset=${this.curDataset}
+        ></mememo-playground>`;
+        break;
+      }
+
+      case Dataset.DiffusionDB1m: {
+        playground = html`<mememo-playground
+          curDataset=${this.curDataset}
+        ></mememo-playground>`;
+        break;
+      }
+
+      case Dataset.accident3k: {
+        playground = html`<mememo-playground
+          curDataset=${this.curDataset}
+        ></mememo-playground>`;
+        break;
+      }
+
+      default: {
+        playground = html`<mememo-playground
+          curDataset=${Dataset.arXiv10k}
+        ></mememo-playground>`;
+      }
+    }
+
     return html`
       <div class="page">
         <div class="main-app">
@@ -75,8 +137,67 @@ export class MememoRagPlayground extends LitElement {
               </div>
             </div>
 
-            <mememo-playground></mememo-playground>
-            <div class="app-tabs"></div>
+            ${playground}
+
+            <div class="app-tabs">
+              <div class="tab">
+                ML arXiv Abstracts
+                <button
+                  ?selected=${this.curDataset === Dataset.arXiv10k}
+                  @click=${() => this.tabButtonClicked(Dataset.arXiv10k)}
+                >
+                  10k
+                </button>
+                <button
+                  ?selected=${this.curDataset === Dataset.arXiv120k}
+                  @click=${() => this.tabButtonClicked(Dataset.arXiv120k)}
+                >
+                  120k
+                </button>
+              </div>
+
+              <div class="splitter"></div>
+
+              <div class="tab">
+                DiffusionDB Prompts
+                <button
+                  ?selected=${this.curDataset === Dataset.DiffusionDB10k}
+                  @click=${() => this.tabButtonClicked(Dataset.DiffusionDB10k)}
+                >
+                  10k
+                </button>
+                <button
+                  ?selected=${this.curDataset === Dataset.DiffusionDB100k}
+                  @click=${() => this.tabButtonClicked(Dataset.DiffusionDB100k)}
+                >
+                  100k
+                </button>
+                <button
+                  ?selected=${this.curDataset === Dataset.DiffusionDB500k}
+                  @click=${() => this.tabButtonClicked(Dataset.DiffusionDB500k)}
+                >
+                  500k
+                </button>
+                <button
+                  ?selected=${this.curDataset === Dataset.DiffusionDB1m}
+                  @click=${() => this.tabButtonClicked(Dataset.DiffusionDB1m)}
+                >
+                  1M
+                </button>
+              </div>
+
+              <div class="splitter"></div>
+
+              <div class="tab">
+                AI Accident Reports
+                <button
+                  ?selected=${this.curDataset === Dataset.accident3k}
+                  @click=${() => this.tabButtonClicked(Dataset.accident3k)}
+                >
+                  3k
+                </button>
+              </div>
+            </div>
           </div>
 
           <div class="text-right"></div>

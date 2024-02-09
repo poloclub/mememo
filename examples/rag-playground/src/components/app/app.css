@@ -6,6 +6,8 @@
   flex-direction: column;
   justify-content: flex-start;
   align-items: center;
+
+  --background-color: hsl(206, 75%, 17%);
 }
 
 * {
@@ -39,7 +41,7 @@
   box-sizing: border-box;
   overflow-x: hidden;
   position: relative;
-  background-color: hsl(206, 75%, 17%);
+  background-color: var(--background-color);
 }
 
 .text-left {
@@ -155,4 +157,86 @@
   padding-left: 12px;
   margin-top: 80px;
   color: #e0e0e0;
+}
+
+button {
+  all: unset;
+}
+
+.app-tabs {
+  display: flex;
+  flex-direction: row;
+  padding: 10px 0 0 0;
+
+  .splitter {
+    border-right: 1px solid var(--gray-400);
+    margin: 0 15px;
+    width: 0px;
+  }
+
+  .tab {
+    position: relative;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    color: white;
+    display: flex;
+    flex-flow: row;
+    gap: 8px;
+
+    padding: 0;
+    margin: 0;
+    border: none;
+    background: none;
+
+    transition: font-weight 100ms linear;
+
+    & button {
+      cursor: pointer;
+      border: 1px solid var(--gray-500);
+      padding: 3px 5px;
+      border-radius: 5px;
+      line-height: 1;
+
+      background-color: color-mix(in lab, white 80%, transparent 20%);
+      color: var(--background-color);
+
+      &::after {
+        content: attr(data-text);
+        height: 0;
+        visibility: hidden;
+        pointer-events: none;
+        overflow: hidden;
+        font-weight: 700;
+      }
+
+      &:hover {
+        background-color: color-mix(in lab, white 70%, transparent 30%);
+      }
+
+      &:active {
+        background-color: color-mix(in lab, white 60%, transparent 40%);
+      }
+
+      &[selected] {
+        font-weight: 800;
+        color: white;
+        border: 2px solid var(--gray-200);
+        background-color: color-mix(in lab, white 20%, transparent 80%);
+
+        &::before {
+          content: '';
+          z-index: -1;
+          width: 108%;
+          position: absolute;
+          bottom: -4px;
+          left: 50%;
+          transform: translate(-50%, 0);
+
+          border-radius: 5px;
+        }
+      }
+    }
+  }
 }

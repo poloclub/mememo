@@ -424,7 +424,7 @@ export class MememoTextViewer extends LitElement {
               ? round(this.shownDocumentDistances[i], 4)
               : ''}</span
           >
-          ${itemText}
+          <div class="item-content">${itemText}</div>
         </div> `;
     }
 
