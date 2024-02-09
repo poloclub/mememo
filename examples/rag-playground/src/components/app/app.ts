@@ -210,6 +210,12 @@ export class MememoRagPlayground extends LitElement {
                   3k
                 </button>
               </div>
+
+              <div class="splitter"></div>
+
+              <a class="tab" href="https://github.com/poloclub/mememo"
+                >Add My Documents</a
+              >
             </div>
           </div>
 

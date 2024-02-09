@@ -83,8 +83,8 @@ const datasets: Record<Dataset, DatasetInfo> = {
   },
 
   [Dataset.arXiv120k]: {
-    indexURL: STORE_ENDPOINT + 'ml-arxiv-papers-index-120k.json.gzip',
-    dataURL: STORE_ENDPOINT + 'ml-arxiv-papers-120k.ndjson.gzip',
+    indexURL: REMOTE_ENDPOINT + 'ml-arxiv-papers-index-120k.json.gzip',
+    dataURL: REMOTE_ENDPOINT + 'ml-arxiv-papers-120k.ndjson.gzip',
     datasetName: 'ml-arxiv-papers-120k',
     datasetNameDisplay: 'ML arXiv Abstracts (120k)'
   },
@@ -104,15 +104,15 @@ const datasets: Record<Dataset, DatasetInfo> = {
   },
 
   [Dataset.DiffusionDB500k]: {
-    // indexURL: '/data/diffusiondb-prompts-index-1m.json.gzip',
-    dataURL: '/data/diffusiondb-prompt-500k.ndjson.gzip',
+    indexURL: REMOTE_ENDPOINT + 'diffusiondb-prompt-index-500k.json.gzip',
+    dataURL: REMOTE_ENDPOINT + 'diffusiondb-prompt-500k.ndjson.gzip',
     datasetName: 'diffusiondb-prompts-500k',
     datasetNameDisplay: 'DiffusionDB Prompts (500k)'
   },
 
   [Dataset.DiffusionDB1m]: {
-    // indexURL: '/data/diffusiondb-prompts-index-1m.json.gzip',
-    dataURL: '/data/diffusiondb-prompt-1m.ndjson.gzip',
+    indexURL: REMOTE_ENDPOINT + 'diffusiondb-prompt-index-1m.json.gzip',
+    dataURL: REMOTE_ENDPOINT + 'diffusiondb-prompt-1m.ndjson.gzip',
     datasetName: 'diffusiondb-prompts-1m',
     datasetNameDisplay: 'DiffusionDB Prompts (1M)'
   },
