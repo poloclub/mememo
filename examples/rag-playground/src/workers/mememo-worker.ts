@@ -1,5 +1,5 @@
-import { HNSW } from '../../../../src/index';
-import type { MememoIndexJSON } from '../../../../src/index';
+import { HNSW } from 'mememo';
+import type { MememoIndexJSON } from 'mememo';
 import type {
   DocumentRecord,
   DocumentDBEntry,
@@ -10,7 +10,8 @@ import {
   splitStreamTransform,
   parseJSONTransform
 } from '@xiaohk/utils';
-import Flexsearch from 'flexsearch';
+import type * as Flexsearch from 'flexsearch';
+import Index from 'flexsearch';
 import Dexie from 'dexie';
 import type { Table, PromiseExtended } from 'dexie';
 
@@ -97,9 +98,14 @@ let loadedPointCount = 0;
 let lastDrawnPoints: DocumentRecord[] | null = null;
 
 // Indexes
-const flexIndex: Flexsearch.Index = new Flexsearch.Index({
+// const flexIndex: Flexsearch.Index = new Flexsearch.Index({
+//   tokenize: 'forward'
+// }) as Flexsearch.Index;
+
+// @ts-ignore
+const flexIndex: Flexsearch.Index<string> = new Index({
   tokenize: 'forward'
-}) as Flexsearch.Index;
+}) as Flexsearch.Index<string>;
 
 let documentDBPromise: PromiseExtended<Table<DocumentDBEntry, string>> | null =
   null;
@@ -259,6 +265,8 @@ const processPointStream = async (
 
   // Index the point in flex
   pendingDataPoints.push(documentPoint);
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
   flexIndex.add(documentPoint.id, documentPoint.text);
 
   loadedPointCount += 1;
@@ -333,9 +341,9 @@ const searchPoint = async (query: string, limit: number, requestID: number) => {
     throw Error('documentDB is null');
   }
   const documentDB = await documentDBPromise;
-  const resultIDs = flexIndex.search(query, {
+  const resultIDs = await flexIndex.search(query, {
     limit
-  }) as string[];
+  });
 
   // Look up the indexes in indexedDB
   const results = await documentDB.bulkGet(resultIDs);

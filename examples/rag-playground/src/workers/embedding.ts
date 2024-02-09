@@ -1,11 +1,10 @@
 import { pipeline, env } from '@xenova/transformers';
 import type { FeatureExtractionPipeline } from '@xenova/transformers';
 
-// Specify a custom location for models (defaults to '/models/').
-env.localModelPath = '/models/';
-
 // Disable the loading of remote models from the Hugging Face Hub:
 env.allowRemoteModels = false;
+
+// env.localModelPath = 'http://localhost:3000/models/';
 
 export enum EmbeddingModel {
   gteSmall = 'gte-small'
@@ -19,6 +18,7 @@ export type EmbeddingWorkerMessage =
         sentences: string[];
         model: EmbeddingModel;
         detail: string;
+        windowURL: string;
       };
     }
   | {
@@ -41,9 +41,10 @@ export type EmbeddingWorkerMessage =
     };
 
 // Initialize the models
-const extractors: Record<EmbeddingModel, Promise<FeatureExtractionPipeline>> = {
-  'gte-small': pipeline('feature-extraction', 'gte-small')
-};
+const extractorMap = new Map<
+  EmbeddingModel,
+  Promise<FeatureExtractionPipeline>
+>();
 
 /**
  * Helper function to handle calls from the main thread
@@ -52,8 +53,14 @@ const extractors: Record<EmbeddingModel, Promise<FeatureExtractionPipeline>> = {
 self.onmessage = (e: MessageEvent<EmbeddingWorkerMessage>) => {
   switch (e.data.command) {
     case 'startExtractEmbedding': {
-      const { model, sentences, requestID, detail } = e.data.payload;
-      startExtractEmbedding(model, sentences, requestID, detail).then(
+      const { model, sentences, requestID, detail, windowURL } = e.data.payload;
+      startExtractEmbedding(
+        model,
+        sentences,
+        requestID,
+        detail,
+        windowURL
+      ).then(
         () => {},
         () => {}
       );
@@ -76,10 +83,17 @@ export const startExtractEmbedding = async (
   model: EmbeddingModel,
   sentences: string[],
   requestID: string,
-  detail: string
+  detail: string,
+  windowURL: string
 ) => {
   try {
-    const extractor = await extractors[model];
+    // Specify a custom location for models (defaults to '/models/').
+    console.log(windowURL);
+
+    if (!extractorMap.has(model)) {
+      extractorMap.set(model, pipeline('feature-extraction', 'model'));
+    }
+    const extractor = await extractorMap.get(model)!;
     const output = await extractor(sentences, {
       pooling: 'mean',
       normalize: true
@@ -112,6 +126,7 @@ export const startExtractEmbedding = async (
     };
     postMessage(message);
   } catch (error) {
+    console.error(error);
     // Send error to the main thread
     const message: EmbeddingWorkerMessage = {
       command: 'error',

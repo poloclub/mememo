@@ -9,11 +9,12 @@ import type { MememoWorkerMessage } from '../../workers/mememo-worker';
 
 // Assets
 import componentCSS from './text-viewer.css?inline';
-import MememoWorkerInline from '../../workers/mememo-worker?worker&inline';
 import searchIcon from '../../images/icon-search.svg?raw';
 import crossIcon from '../../images/icon-cross-thick.svg?raw';
 import downloadIcon from '../../images/icon-download.svg?raw';
 import crossSmallIcon from '../../images/icon-cross.svg?raw';
+
+import MememoWorkerInline from '../../workers/mememo-worker?worker';
 
 const MAX_DOCUMENTS_IN_MEMORY = 1000;
 const DOCUMENT_INCREMENT = 100;

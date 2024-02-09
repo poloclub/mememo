@@ -15,7 +15,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/xiaohk/mememo"
+    "url": "git+https://github.com/poloclub/mememo"
   },
   "keywords": [
     "machine-learning",
@@ -30,9 +30,9 @@
   "author": "Jay Wang",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/xiaohk/mememo/issues"
+    "url": "https://github.com/poloclub/mememo/issues"
   },
-  "homepage": "https://github.com/xiaohk/mememo#readme",
+  "homepage": "https://github.com/poloclub/mememo#readme",
   "scripts": {
     "test": "vitest test/mememo.test.ts",
     "test:browser": "vitest -c vitest.config.browser.ts test/mememo.browser.test.ts",
@@ -48,7 +48,6 @@
   "devDependencies": {
     "@datastructures-js/heap": "^4.3.3",
     "@rollup/plugin-typescript": "^11.1.6",
-    "@tensorflow/tfjs": "^4.17.0",
     "@types/d3-random": "^3.0.3",
     "@typescript-eslint/eslint-plugin": "^6.19.1",
     "@typescript-eslint/parser": "^6.19.1",

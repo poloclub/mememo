@@ -14,7 +14,6 @@ import {
 import { textGenGpt } from '../../llms/gpt';
 import { textGenMememo } from '../../llms/mememo-gen';
 import { textGenGemini } from '../../llms/gemini';
-import TextGenLocalWorkerInline from '../../llms/web-llm?worker&inline';
 import { promptTemplates } from '../../config/promptTemplates';
 
 import type { TextGenMessage } from '../../llms/gpt';
@@ -30,7 +29,8 @@ import '../output-box/output-box';
 import '../text-viewer/text-viewer';
 
 import componentCSS from './playground.css?inline';
-import EmbeddingWorkerInline from '../../workers/embedding?worker&inline';
+// import TextGenLocalWorkerInline from '../../llms/web-llm?worker&inline';
+// import EmbeddingWorkerInline from '../../workers/embedding?worker';
 import logoIcon from '../../images/icon-logo.svg?raw';
 
 interface DatasetInfo {
@@ -99,7 +99,7 @@ export class MememoPlayground extends LitElement {
   //                              Class Properties                            ||
   //==========================================================================||
   @property()
-  curDataset: Dataset = Dataset.DiffusionDB1m;
+  curDataset: Dataset = Dataset.arXiv10k;
 
   @state()
   userQuery = '';
@@ -110,7 +110,7 @@ export class MememoPlayground extends LitElement {
   @state()
   llmOutput = '';
 
-  embeddingWorker: Worker;
+  // embeddingWorker: Worker;
   embeddingWorkerRequestCount = 0;
   get embeddingWorkerRequestID() {
     this.embeddingWorkerRequestCount++;
@@ -148,7 +148,7 @@ export class MememoPlayground extends LitElement {
   userConfig!: UserConfig;
 
   @property({ attribute: false })
-  textGenLocalWorker: Worker;
+  // textGenLocalWorker: Worker;
   textGenLocalWorkerResolve = (
     value: TextGenMessage | PromiseLike<TextGenMessage>
   ) => {};
@@ -166,16 +166,16 @@ export class MememoPlayground extends LitElement {
   constructor() {
     super();
 
-    this.embeddingWorker = new EmbeddingWorkerInline();
-    this.embeddingWorker.addEventListener(
-      'message',
-      (e: MessageEvent<EmbeddingWorkerMessage>) => {
-        this.embeddingWorkerMessageHandler(e);
-      }
-    );
+    // this.embeddingWorker = new EmbeddingWorkerInline();
+    // this.embeddingWorker.addEventListener(
+    //   'message',
+    //   (e: MessageEvent<EmbeddingWorkerMessage>) => {
+    //     this.embeddingWorkerMessageHandler(e);
+    //   }
+    // );
 
     // Initialize the local llm worker
-    this.textGenLocalWorker = new TextGenLocalWorkerInline();
+    // this.textGenLocalWorker = new TextGenLocalWorkerInline();
 
     // Set up the user config store
     const updateUserConfig = (userConfig: UserConfig) => {
@@ -228,10 +228,11 @@ export class MememoPlayground extends LitElement {
         detail: '',
         requestID: this.embeddingWorkerRequestID,
         model: EmbeddingModel.gteSmall,
-        sentences: sentences
+        sentences: sentences,
+        windowURL: window.location.href
       }
     };
-    this.embeddingWorker.postMessage(message);
+    // this.embeddingWorker.postMessage(message);
   }
 
   /**
@@ -296,7 +297,7 @@ export class MememoPlayground extends LitElement {
       }
 
       case 'error': {
-        console.error('Worker error: ', e.data.payload.message);
+        console.error('Worker error: ', JSON.stringify(e.data.payload.message));
         break;
       }
 
@@ -461,7 +462,7 @@ export class MememoPlayground extends LitElement {
             temperature: temperature
           }
         };
-        this.textGenLocalWorker.postMessage(message);
+        // this.textGenLocalWorker.postMessage(message);
         break;
       }
 
