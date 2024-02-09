@@ -1,6 +1,6 @@
 {
   "name": "mememo",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "On-device vector database",
   "main": "./dist/index.umd.js",
   "module": "./dist/index.es.js",
