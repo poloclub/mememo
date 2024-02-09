@@ -59,6 +59,13 @@ export class MememoRagPlayground extends LitElement {
     let playground = html``;
 
     switch (this.curDataset) {
+      case Dataset.arXiv1k: {
+        playground = html`<mememo-playground
+          curDataset=${this.curDataset}
+        ></mememo-playground>`;
+        break;
+      }
+
       case Dataset.arXiv10k: {
         playground = html`<mememo-playground
           curDataset=${this.curDataset}
@@ -142,6 +149,12 @@ export class MememoRagPlayground extends LitElement {
             <div class="app-tabs">
               <div class="tab">
                 ML arXiv Abstracts
+                <button
+                  ?selected=${this.curDataset === Dataset.arXiv1k}
+                  @click=${() => this.tabButtonClicked(Dataset.arXiv1k)}
+                >
+                  1k
+                </button>
                 <button
                   ?selected=${this.curDataset === Dataset.arXiv10k}
                   @click=${() => this.tabButtonClicked(Dataset.arXiv10k)}

@@ -74,6 +74,7 @@ export type MememoWorkerMessage =
         requestID: number;
         topK: number;
         maxDistance: number;
+        efSearch: number;
       };
     }
   | {
@@ -83,6 +84,7 @@ export type MememoWorkerMessage =
         requestID: number;
         topK: number;
         maxDistance: number;
+        efSearch: number;
         documents: string[];
         documentDistances: number[];
       };
@@ -165,8 +167,9 @@ self.onmessage = (e: MessageEvent<MememoWorkerMessage>) => {
     }
 
     case 'startSemanticSearch': {
-      const { requestID, embedding, topK, maxDistance } = e.data.payload;
-      semanticSearch(embedding, topK, maxDistance, requestID).then(
+      const { requestID, embedding, topK, efSearch, maxDistance } =
+        e.data.payload;
+      semanticSearch(embedding, topK, maxDistance, efSearch, requestID).then(
         () => {},
         () => {}
       );
@@ -381,6 +384,7 @@ const semanticSearch = async (
   embedding: number[],
   topK: number,
   maxDistance: number,
+  efSearch: number,
   requestID: number
 ) => {
   if (documentDBPromise === null) {
@@ -389,7 +393,7 @@ const semanticSearch = async (
   const documentDB = await documentDBPromise;
   await finishedLoading;
 
-  const { keys, distances } = await hnswIndex.query(embedding, topK);
+  const { keys, distances } = await hnswIndex.query(embedding, topK, efSearch);
 
   // Batched query documents from indexedDB
   const results = await documentDB.bulkGet(keys);
@@ -414,6 +418,7 @@ const semanticSearch = async (
       topK,
       requestID,
       maxDistance,
+      efSearch,
       documents,
       documentDistances
     }

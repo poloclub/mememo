@@ -147,14 +147,20 @@ export class MememoTextViewer extends LitElement {
    * @param topK Top k relevant documents to retrieve
    * @param maxDistance Distance threshold for relevance
    */
-  semanticSearch(embedding: number[], topK: number, maxDistance: number) {
+  semanticSearch(
+    embedding: number[],
+    topK: number,
+    maxDistance: number,
+    efSearch: number
+  ) {
     const message: MememoWorkerMessage = {
       command: 'startSemanticSearch',
       payload: {
         embedding,
         requestID: this.semanticSearchRequestID,
         topK,
-        maxDistance
+        maxDistance,
+        efSearch
       }
     };
     this.mememoWorker.postMessage(message);

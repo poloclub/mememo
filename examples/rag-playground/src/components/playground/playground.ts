@@ -31,9 +31,11 @@ import '../text-viewer/text-viewer';
 import componentCSS from './playground.css?inline';
 import TextGenLocalWorkerInline from '../../llms/web-llm?worker&inline';
 import EmbeddingWorkerInline from '../../workers/embedding?worker';
-import logoIcon from '../../images/icon-logo.svg?raw';
+import gearIcon from '../../images/icon-gear.svg?raw';
 
-const STORE_ENDPOINT = 'https://pub-4eccf317e01e4aa3a5caa9991c8b1e2a.r2.dev/';
+const STORE_ENDPOINT = import.meta.env.DEV
+  ? '/data/'
+  : 'https://pub-4eccf317e01e4aa3a5caa9991c8b1e2a.r2.dev/';
 
 interface DatasetInfo {
   dataURL: string;
@@ -43,6 +45,7 @@ interface DatasetInfo {
 }
 
 export enum Dataset {
+  arXiv1k = 'arxiv-1k',
   arXiv10k = 'arxiv-10k',
   arXiv120k = 'arxiv-120k',
   DiffusionDB10k = 'diffusiondb-10k',
@@ -62,6 +65,13 @@ enum Arrow {
 const promptTemplate = promptTemplates as Record<Dataset, string>;
 
 const datasets: Record<Dataset, DatasetInfo> = {
+  [Dataset.arXiv1k]: {
+    indexURL: STORE_ENDPOINT + 'ml-arxiv-papers-index-1k.json.gzip',
+    dataURL: STORE_ENDPOINT + 'ml-arxiv-papers-1k.ndjson.gzip',
+    datasetName: 'ml-arxiv-papers-1k',
+    datasetNameDisplay: 'ML arXiv Abstracts (1k)'
+  },
+
   [Dataset.arXiv10k]: {
     indexURL: STORE_ENDPOINT + 'ml-arxiv-papers-index-10k.json.gzip',
     dataURL: STORE_ENDPOINT + 'ml-arxiv-papers-10k.ndjson.gzip',
@@ -147,7 +157,7 @@ export class MememoPlayground extends LitElement {
   topK = 10;
 
   @state()
-  maxDistance = 0.25;
+  efSearch = 100;
 
   @query('mememo-text-viewer')
   textViewerComponent: MememoTextViewer | undefined | null;
@@ -280,7 +290,12 @@ export class MememoPlayground extends LitElement {
     // Loading the arrow
     this.arrowElements[Arrow.Search]?.classList.add('running');
 
-    this.textViewerComponent.semanticSearch(embedding, this.topK, 0.5);
+    this.textViewerComponent.semanticSearch(
+      embedding,
+      this.topK,
+      0.5,
+      this.efSearch
+    );
   }
 
   //==========================================================================||
@@ -346,17 +361,17 @@ export class MememoPlayground extends LitElement {
    * @param e Input event
    * @param parameter Type of the parameter
    */
-  parameterInputChanged(e: InputEvent, parameter: 'distance' | 'top-k') {
+  parameterInputChanged(e: InputEvent, parameter: 'efSearch' | 'top-k') {
     const element = e.currentTarget as HTMLInputElement;
 
-    if (parameter === 'distance') {
-      const value = parseFloat(element.value);
-      if (value > 0 && value < 1) {
-        this.maxDistance = value;
+    if (parameter === 'efSearch') {
+      const value = parseInt(element.value);
+      if (value > 0) {
+        this.efSearch = value;
       } else {
-        this.maxDistance = 0.25;
+        this.efSearch = 100;
       }
-      element.value = String(this.maxDistance);
+      element.value = String(this.efSearch);
     }
 
     if (parameter === 'top-k') {
@@ -574,13 +589,13 @@ export class MememoPlayground extends LitElement {
           <div class="search-box">
             <div class="search-top-info">
               <span class="row"
-                >distance &lt;
+                >ef-search =
                 <input
-                  id="input-distance"
+                  id="input-efSearch"
                   type="text"
-                  value="0.25"
+                  value="100"
                   @change=${(e: InputEvent) =>
-                    this.parameterInputChanged(e, 'distance')}
+                    this.parameterInputChanged(e, 'efSearch')}
               /></span>
               <span class="row"
                 >top-k =
@@ -623,6 +638,12 @@ export class MememoPlayground extends LitElement {
         <div class="container container-model">
           <div class="model-box">
             <div class="header">GPT 3.5</div>
+            <div class="button-group">
+              <button>
+                <span class="svg-icon">${unsafeHTML(gearIcon)}</span>
+                change
+              </button>
+            </div>
           </div>
         </div>
 
