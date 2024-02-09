@@ -20,7 +20,7 @@ const DOCUMENT_INCREMENT = 100;
 const LEXICAL_SEARCH_LIMIT = 2000;
 const numberFormatter = d3.format(',');
 
-const startLoadingTime = new Date().getUTCSeconds();
+const startLoadingTime = Date.now();
 const loadingTimes: number[] = [];
 const TRACK_LOADING_TIME = false;
 
@@ -244,7 +244,7 @@ export class MememoTextViewer extends LitElement {
 
         // Track the loading time
         if (TRACK_LOADING_TIME) {
-          const now = new Date().getUTCSeconds();
+          const now = Date.now();
           loadingTimes.push(now - startLoadingTime);
         }
 
@@ -253,16 +253,16 @@ export class MememoTextViewer extends LitElement {
           this.markMememoFinishedLoading();
           this.isMememoFinishedLoading = true;
 
-          // Export the index to a json file
-          // const message: MememoWorkerMessage = {
-          //   command: 'startExportIndex',
-          //   payload: { requestID: 0 }
-          // };
-          // this.mememoWorker.postMessage(message);
-
-          // Download the loading times
           if (TRACK_LOADING_TIME) {
+            // Download the loading times
             downloadJSON(loadingTimes, undefined, 'loading-times.json');
+
+            // Export the index to a json file
+            const message: MememoWorkerMessage = {
+              command: 'startExportIndex',
+              payload: { requestID: 0 }
+            };
+            this.mememoWorker.postMessage(message);
           }
         }
         break;

@@ -72,9 +72,9 @@ const datasets: Record<Dataset, DatasetInfo> = {
   },
 
   [Dataset.DiffusionDB1m]: {
-    indexURL: '/data/diffusiondb-pormpts-1m-index.json.gzip',
-    dataURL: '/data/diffusiondb-pormpts-1m.ndjson.gzip',
-    datasetName: 'diffusiondb-pormpts-1m',
+    // indexURL: '/data/diffusiondb-prompts-1m-index.json.gzip',
+    dataURL: '/data/diffusiondb-prompt-1m.ndjson.gzip',
+    datasetName: 'diffusiondb-prompts-1m',
     datasetNameDisplay: 'DiffusionDB Prompts (1M)'
   },
 
@@ -98,6 +98,9 @@ export class MememoPlayground extends LitElement {
   //==========================================================================||
   //                              Class Properties                            ||
   //==========================================================================||
+  @property()
+  curDataset: Dataset = Dataset.DiffusionDB1m;
+
   @state()
   userQuery = '';
 
@@ -106,9 +109,6 @@ export class MememoPlayground extends LitElement {
 
   @state()
   llmOutput = '';
-
-  @property()
-  curDataset: Dataset = Dataset.arXiv120k;
 
   embeddingWorker: Worker;
   embeddingWorkerRequestCount = 0;
