@@ -7,6 +7,37 @@ import componentCSS from './app.css?inline';
 import logoIcon from '../../images/icon-logo.svg?raw';
 import { Dataset } from '../playground/playground';
 
+let defaultDataset = Dataset.arXiv10k;
+
+// Check url query to change the view
+if (window.location.search !== '') {
+  const searchParams = new URLSearchParams(window.location.search);
+  if (searchParams.has('dataset')) {
+    const modelName = searchParams.get('dataset')!;
+
+    switch (modelName) {
+      case 'paper': {
+        defaultDataset = Dataset.arXiv10k;
+        break;
+      }
+
+      case 'diffusiondb': {
+        defaultDataset = Dataset.DiffusionDB10k;
+        break;
+      }
+
+      case 'accident': {
+        defaultDataset = Dataset.accident3k;
+        break;
+      }
+
+      default: {
+        break;
+      }
+    }
+  }
+}
+
 /**
  * App element.
  *
@@ -24,7 +55,7 @@ export class MememoRagPlayground extends LitElement {
   //==========================================================================||
   constructor() {
     super();
-    this.curDataset = Dataset.arXiv1k;
+    this.curDataset = defaultDataset;
   }
 
   /**

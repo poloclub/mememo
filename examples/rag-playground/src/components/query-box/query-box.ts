@@ -30,7 +30,7 @@ export class MememoQueryBox extends LitElement {
   //==========================================================================||
   constructor() {
     super();
-    this.userQuery = this.defaultQuery;
+    this.userQuery = '';
   }
 
   firstUpdated() {

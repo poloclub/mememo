@@ -34,7 +34,7 @@ export default defineConfig(({ command, mode }) => {
       case 'github': {
         // Production: github page (default mode)
         return {
-          base: '/wordflow/',
+          base: '/mememo/',
           build: {
             outDir: 'dist',
             rollupOptions: {

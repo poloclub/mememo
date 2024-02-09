@@ -139,7 +139,7 @@ export class MememoPlayground extends LitElement {
   //                              Class Properties                            ||
   //==========================================================================||
   @property()
-  curDataset: Dataset = Dataset.arXiv10k;
+  curDataset!: Dataset;
 
   @state()
   userQuery = '';

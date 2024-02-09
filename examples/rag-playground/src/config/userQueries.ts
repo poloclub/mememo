@@ -25,7 +25,7 @@ const arXivQueries = [
 ];
 
 const diffusiondbQueries: string[] = [
-  'A cute brown dog jumping around',
+  'A cute brown dog jumps around the tree',
   'White dog wandering through a dense forest',
   'Red apple resting on an aged wooden table',
   'Sunny field dotted with vibrant sunflowers',
