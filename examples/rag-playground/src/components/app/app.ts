@@ -24,7 +24,7 @@ export class MememoRagPlayground extends LitElement {
   //==========================================================================||
   constructor() {
     super();
-    this.curDataset = Dataset.arXiv10k;
+    this.curDataset = Dataset.arXiv1k;
   }
 
   /**

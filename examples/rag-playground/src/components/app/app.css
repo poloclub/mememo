@@ -223,7 +223,7 @@ button {
         font-weight: 800;
         color: white;
         border: 2px solid var(--gray-200);
-        background-color: color-mix(in lab, white 20%, transparent 80%);
+        background-color: color-mix(in lab, white 10%, transparent 90%);
 
         &::before {
           content: '';

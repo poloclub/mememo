@@ -224,7 +224,9 @@ const startTextGen = async (prompt: string, temperature: number) => {
       await _modelLoadingComplete;
     }
 
-    const response = await chat.generate(prompt);
+    const truncated = prompt.slice(0, 2000);
+
+    const response = await chat.generate(truncated);
 
     // Reset the chat cache to avoid memorizing previous messages
     await chat.resetChat();

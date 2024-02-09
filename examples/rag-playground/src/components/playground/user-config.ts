@@ -11,8 +11,8 @@ export enum SupportedLocalModel {
 }
 
 export enum SupportedRemoteModel {
-  'gpt-3.5-free' = 'GPT 3.5 (free)',
-  'gpt-3.5' = 'GPT 3.5',
+  'gpt-3.5-free' = 'GPT 3.5',
+  'gpt-3.5' = 'GPT 3.5 (Token)',
   'gpt-4' = 'GPT 4',
   'gemini-pro' = 'Gemini Pro'
 }

@@ -22,11 +22,14 @@ import type { MememoTextViewer } from '../text-viewer/text-viewer';
 import type { MememoPromptBox } from '../prompt-box/prompt-box';
 import type { MememoQueryBox } from '../query-box/query-box';
 import type { TextGenLocalWorkerMessage } from '../../llms/web-llm';
+import type { NightjarToast } from '../toast/toast';
 
 import '../query-box/query-box';
 import '../prompt-box/prompt-box';
 import '../output-box/output-box';
 import '../text-viewer/text-viewer';
+import '../panel-setting/panel-setting';
+import '../toast/toast';
 
 import componentCSS from './playground.css?inline';
 import TextGenLocalWorkerInline from '../../llms/web-llm?worker&inline';
@@ -159,6 +162,21 @@ export class MememoPlayground extends LitElement {
   @state()
   efSearch = 100;
 
+  @state()
+  isSearching = false;
+
+  @state()
+  searchRunTime: [number, number] | null = null;
+  searchStartTime = 0;
+  encodeFinishTime = 0;
+
+  @state()
+  isRunningLLM = false;
+
+  @state()
+  LLMRunTime: number | null = null;
+  LLMStartTime = 0;
+
   @query('mememo-text-viewer')
   textViewerComponent: MememoTextViewer | undefined | null;
 
@@ -177,11 +195,23 @@ export class MememoPlayground extends LitElement {
   @query('.container-output')
   containerOutputElement: HTMLElement | undefined | null;
 
+  @query('dialog')
+  dialogElement: HTMLDialogElement | undefined;
+
   @state()
   userConfigManager: UserConfigManager;
 
   @state()
   userConfig!: UserConfig;
+
+  @state()
+  toastMessage = '';
+
+  @state()
+  toastType: 'success' | 'warning' | 'error' = 'success';
+
+  @query('nightjar-toast')
+  toastComponent: NightjarToast | undefined | null;
 
   @property({ attribute: false })
   textGenLocalWorker: Worker;
@@ -212,6 +242,12 @@ export class MememoPlayground extends LitElement {
 
     // Initialize the local llm worker
     this.textGenLocalWorker = new TextGenLocalWorkerInline();
+    this.textGenLocalWorker.addEventListener(
+      'message',
+      (e: MessageEvent<TextGenMessage>) => {
+        this.textGenLocalWorkerMessageHandler(e);
+      }
+    );
 
     // Set up the user config store
     const updateUserConfig = (userConfig: UserConfig) => {
@@ -265,6 +301,10 @@ export class MememoPlayground extends LitElement {
    * @param sentences Input sentences
    */
   getEmbedding(sentences: string[]) {
+    this.searchRunTime = null;
+    this.searchStartTime = Date.now();
+    this.isSearching = true;
+
     const message: EmbeddingWorkerMessage = {
       command: 'startExtractEmbedding',
       payload: {
@@ -329,6 +369,12 @@ export class MememoPlayground extends LitElement {
   semanticSearchFinishedHandler(e: CustomEvent<string[]>) {
     this.relevantDocuments = e.detail;
 
+    this.searchRunTime = [
+      this.encodeFinishTime - this.searchStartTime,
+      Date.now() - this.searchStartTime
+    ];
+    this.isSearching = false;
+
     // Activate arrows
     this.arrowElements[Arrow.Search]?.classList.remove('running');
     this.arrowElements[Arrow.Search]?.classList.add('activated');
@@ -340,6 +386,7 @@ export class MememoPlayground extends LitElement {
       case 'finishExtractEmbedding': {
         const { embeddings } = e.data.payload;
         // Start semantic search using the embedding
+        this.encodeFinishTime = Date.now();
         this.semanticSearch(embeddings[0]);
         break;
       }
@@ -382,6 +429,45 @@ export class MememoPlayground extends LitElement {
         this.topK = 10;
       }
       element.value = String(this.topK);
+    }
+  }
+
+  /**
+   * Event handler for the text gen local worker
+   * @param e Text gen message
+   */
+  textGenLocalWorkerMessageHandler(e: MessageEvent<TextGenLocalWorkerMessage>) {
+    switch (e.data.command) {
+      case 'finishTextGen': {
+        const message: TextGenMessage = {
+          command: 'finishTextGen',
+          payload: e.data.payload
+        };
+        this.textGenLocalWorkerResolve(message);
+        break;
+      }
+
+      case 'progressLoadModel': {
+        break;
+      }
+
+      case 'finishLoadModel': {
+        break;
+      }
+
+      case 'error': {
+        const message: TextGenMessage = {
+          command: 'error',
+          payload: e.data.payload
+        };
+        this.textGenLocalWorkerResolve(message);
+        break;
+      }
+
+      default: {
+        console.error('Worker: unknown message', e.data.command);
+        break;
+      }
     }
   }
 
@@ -453,8 +539,13 @@ export class MememoPlayground extends LitElement {
    */
   _runPrompt(curPrompt: string, temperature = 0.2) {
     let runRequest: Promise<TextGenMessage>;
+    this.llmOutput = '';
+    this.LLMRunTime = null;
+    this.LLMStartTime = Date.now();
+    this.isRunningLLM = true;
 
     // Show a loader
+    this.isRunningLLM = true;
     this.arrowElements[Arrow.Output]?.classList.add('running');
 
     switch (this.userConfig.preferredLLM) {
@@ -554,6 +645,8 @@ export class MememoPlayground extends LitElement {
             // });
 
             this.llmOutput = message.payload.result;
+            this.LLMRunTime = Date.now() - this.LLMStartTime;
+            this.isRunningLLM = false;
 
             // Activate arrows
             this.arrowElements[Arrow.Output]?.classList.remove('running');
@@ -563,11 +656,27 @@ export class MememoPlayground extends LitElement {
 
           case 'error': {
             console.error(message.payload.message);
+            this.toastMessage =
+              'Fail to run this LLM. Try it again later or use a different model.';
+            this.toastType = 'error';
+            this.toastComponent?.show();
+
+            this.LLMRunTime = null;
+            this.isRunningLLM = false;
+
+            // Activate arrows
+            this.arrowElements[Arrow.Output]?.classList.remove('running');
           }
         }
       },
       () => {}
     );
+  }
+
+  dialogClicked(e: MouseEvent) {
+    if (e.target === this.dialogElement) {
+      this.dialogElement.close();
+    }
   }
 
   //==========================================================================||
@@ -576,6 +685,13 @@ export class MememoPlayground extends LitElement {
   render() {
     return html`
       <div class="playground">
+        <div class="toast-container">
+          <nightjar-toast
+            message=${this.toastMessage}
+            type=${this.toastType}
+          ></nightjar-toast>
+        </div>
+
         <div class="container container-input">
           <mememo-query-box
             @runButtonClicked=${(e: CustomEvent<string>) =>
@@ -587,6 +703,26 @@ export class MememoPlayground extends LitElement {
 
         <div class="container container-search">
           <div class="search-box">
+            <div
+              class="search-time-info"
+              ?is-hidden=${this.searchRunTime === null}
+            >
+              <span class="row"
+                >encode:
+                ${this.searchRunTime ? this.searchRunTime[0] : ''}ms</span
+              >
+              <span class="row"
+                >retrieval:
+                ${this.searchRunTime ? this.searchRunTime[1] : ''}ms</span
+              >
+            </div>
+
+            <div class="search-loader" ?is-hidden=${!this.isSearching}>
+              <div class=" loader-container">
+                <div class="circle-loader"></div>
+              </div>
+            </div>
+
             <div class="search-top-info">
               <span class="row"
                 >ef-search =
@@ -637,12 +773,26 @@ export class MememoPlayground extends LitElement {
 
         <div class="container container-model">
           <div class="model-box">
-            <div class="header">GPT 3.5</div>
+            <div class="header">${this.userConfig.preferredLLM}</div>
             <div class="button-group">
-              <button>
+              <button
+                @click=${() => {
+                  this.dialogElement?.showModal();
+                }}
+              >
                 <span class="svg-icon">${unsafeHTML(gearIcon)}</span>
                 change
               </button>
+            </div>
+
+            <div class="model-loader" ?is-hidden=${!this.isRunningLLM}>
+              <div class=" loader-container">
+                <div class="circle-loader"></div>
+              </div>
+            </div>
+
+            <div class="model-time-info" ?is-hidden=${this.LLMRunTime === null}>
+              ${`${this.LLMRunTime}ms`}
             </div>
           </div>
         </div>
@@ -682,6 +832,21 @@ export class MememoPlayground extends LitElement {
             <div class="end-triangle"></div>
           </div>
         </div>
+
+        <dialog
+          class="setting-dialog"
+          @click=${(e: MouseEvent) => this.dialogClicked(e)}
+        >
+          <mememo-panel-setting
+            .userConfigManager=${this.userConfigManager}
+            .userConfig=${this.userConfig}
+            .textGenLocalWorker=${this.textGenLocalWorker}
+            ?is-shown=${true}
+            @closeClicked=${() => {
+              this.dialogElement?.close();
+            }}
+          ></mememo-panel-setting>
+        </dialog>
       </div>
     `;
   }
