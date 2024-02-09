@@ -1,6 +1,9 @@
 import { LitElement, css, unsafeCSS, html, PropertyValues } from 'lit';
 import { customElement, property, state, query } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
+import { Dataset } from '../playground/playground';
+import { userQueries } from '../../config/userQueries';
+import d3 from '../../utils/d3-import';
 
 import componentCSS from './query-box.css?inline';
 import searchIcon from '../../images/icon-search.svg?raw';
@@ -16,16 +19,17 @@ export class MememoQueryBox extends LitElement {
   //==========================================================================||
   //                              Class Properties                            ||
   //==========================================================================||
+  @property({ type: String })
+  curDataset: Dataset | undefined;
+
+  @state()
   userQuery: string;
-  defaultQuery: string;
 
   //==========================================================================||
   //                             Lifecycle Methods                            ||
   //==========================================================================||
   constructor() {
     super();
-    this.defaultQuery =
-      'What are some ways to integrate information retrieval into machine learning?';
     this.userQuery = this.defaultQuery;
   }
 
@@ -49,7 +53,11 @@ export class MememoQueryBox extends LitElement {
    * This method is called before new DOM is updated and rendered
    * @param changedProperties Property that has been changed
    */
-  willUpdate(changedProperties: PropertyValues<this>) {}
+  willUpdate(changedProperties: PropertyValues<this>) {
+    if (changedProperties.has('curDataset') && this.curDataset) {
+      this.userQuery = userQueries[this.curDataset][0];
+    }
+  }
 
   //==========================================================================||
   //                              Custom Methods                              ||
@@ -65,6 +73,21 @@ export class MememoQueryBox extends LitElement {
   //==========================================================================||
   //                              Event Handlers                              ||
   //==========================================================================||
+  randomButtonClicked() {
+    if (this.curDataset) {
+      const allQueries = userQueries[this.curDataset];
+      const i = d3.randomInt(allQueries.length)();
+      this.userQuery = allQueries[i];
+
+      // Notify the parent
+      const event = new Event('queryEdited', {
+        bubbles: true,
+        composed: true
+      });
+      this.dispatchEvent(event);
+    }
+  }
+
   textareaInput(e: InputEvent) {
     const textareaElement = e.currentTarget as HTMLTextAreaElement;
     this.userQuery = textareaElement.value;
@@ -101,7 +124,7 @@ export class MememoQueryBox extends LitElement {
           <span class="text">User Query</span>
 
           <div class="button-group">
-            <button>
+            <button @click=${() => this.randomButtonClicked()}>
               <span class="svg-icon">${unsafeHTML(refreshIcon)}</span>
               random
             </button>

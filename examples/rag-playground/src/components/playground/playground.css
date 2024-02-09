@@ -481,12 +481,13 @@
 
 .search-time-info {
   position: absolute;
-  top: 0px;
+  bottom: 0px;
   left: 50%;
   width: 100%;
-  transform: translate(-50%, calc(-100% - 5px));
+  transform: translate(-50%, calc(100% + 5px));
   font-size: var(--font-d2);
-  color: var(--gray-600);
+  color: var(--gray-500);
+  white-space: nowrap;
 
   display: flex;
   flex-flow: column;

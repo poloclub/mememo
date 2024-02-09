@@ -26,7 +26,7 @@ export interface PromptRunPostBody {
 }
 
 const ENDPOINT =
-  'https://o2r71c10cd.execute-api.localhost.localstack.cloud:4566/prod/run';
+  'https://aq079yrw81.execute-api.us-east-1.amazonaws.com/prod/run';
 
 /**
  * Use mememo to generate text based on a given prompt

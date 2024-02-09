@@ -3,6 +3,7 @@ import { customElement, property, state, query } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { EmbeddingModel } from '../../workers/embedding';
+import d3 from '../../utils/d3-import';
 import {
   UserConfigManager,
   UserConfig,
@@ -36,9 +37,8 @@ import TextGenLocalWorkerInline from '../../llms/web-llm?worker&inline';
 import EmbeddingWorkerInline from '../../workers/embedding?worker';
 import gearIcon from '../../images/icon-gear.svg?raw';
 
-const STORE_ENDPOINT = import.meta.env.DEV
-  ? '/data/'
-  : 'https://pub-4eccf317e01e4aa3a5caa9991c8b1e2a.r2.dev/';
+const REMOTE_ENDPOINT = 'https://pub-4eccf317e01e4aa3a5caa9991c8b1e2a.r2.dev/';
+const STORE_ENDPOINT = import.meta.env.DEV ? '/data/' : REMOTE_ENDPOINT;
 
 interface DatasetInfo {
   dataURL: string;
@@ -90,15 +90,15 @@ const datasets: Record<Dataset, DatasetInfo> = {
   },
 
   [Dataset.DiffusionDB10k]: {
-    indexURL: STORE_ENDPOINT + 'diffusiondb-prompt-index-10k.json.gzip',
-    dataURL: STORE_ENDPOINT + 'diffusiondb-prompt-10k.ndjson.gzip',
+    indexURL: REMOTE_ENDPOINT + 'diffusiondb-prompt-index-10k.json.gzip',
+    dataURL: REMOTE_ENDPOINT + 'diffusiondb-prompt-10k.ndjson.gzip',
     datasetName: 'diffusiondb-prompts-10k',
     datasetNameDisplay: 'DiffusionDB Prompts (10k)'
   },
 
   [Dataset.DiffusionDB100k]: {
-    indexURL: STORE_ENDPOINT + 'diffusiondb-prompt-index-100k.json.gzip',
-    dataURL: STORE_ENDPOINT + 'diffusiondb-prompt-100k.ndjson.gzip',
+    indexURL: REMOTE_ENDPOINT + 'diffusiondb-prompt-index-100k.json.gzip',
+    dataURL: REMOTE_ENDPOINT + 'diffusiondb-prompt-100k.ndjson.gzip',
     datasetName: 'diffusiondb-prompts-100k',
     datasetNameDisplay: 'DiffusionDB Prompts (100k)'
   },
@@ -127,6 +127,7 @@ const datasets: Record<Dataset, DatasetInfo> = {
 
 const DEV_MODE = import.meta.env.DEV;
 const USE_CACHE = true && DEV_MODE;
+const FORMATTER = d3.format(',');
 
 /**
  * Playground element.
@@ -694,6 +695,7 @@ export class MememoPlayground extends LitElement {
 
         <div class="container container-input">
           <mememo-query-box
+            curDataset=${this.curDataset}
             @runButtonClicked=${(e: CustomEvent<string>) =>
               this.userQueryRunClickHandler(e)}
             @queryEdited=${() => this._deactivateAllArrows()}
@@ -703,17 +705,18 @@ export class MememoPlayground extends LitElement {
 
         <div class="container container-search">
           <div class="search-box">
-            <div
-              class="search-time-info"
-              ?is-hidden=${this.searchRunTime === null}
-            >
+            <div class="search-time-info" ?is-hidden=${true}>
               <span class="row"
                 >encode:
-                ${this.searchRunTime ? this.searchRunTime[0] : ''}ms</span
+                ${this.searchRunTime
+                  ? FORMATTER(this.searchRunTime[0])
+                  : ''}ms</span
               >
               <span class="row"
                 >retrieval:
-                ${this.searchRunTime ? this.searchRunTime[1] : ''}ms</span
+                ${this.searchRunTime
+                  ? FORMATTER(this.searchRunTime[1])
+                  : ''}ms</span
               >
             </div>
 
@@ -791,8 +794,8 @@ export class MememoPlayground extends LitElement {
               </div>
             </div>
 
-            <div class="model-time-info" ?is-hidden=${this.LLMRunTime === null}>
-              ${`${this.LLMRunTime}ms`}
+            <div class="model-time-info" ?is-hidden=${true}>
+              ${this.LLMRunTime === null ? '' : FORMATTER(this.LLMRunTime)}ms
             </div>
           </div>
         </div>
