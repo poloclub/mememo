@@ -24,7 +24,10 @@
     minmax(300px, 500px);
 
   --arrow-color: var(--gray-300);
-  --arrow-color-activated: var(--blue-500);
+
+  --arrow-blue-activated: var(--blue-500);
+  --arrow-orange-activated: var(--orange-500);
+
   --border-radius: 5px;
   --block-shadow: 0px 0px 2px hsla(0, 0%, 0%, 0.1),
     0px 0px 6px hsla(0, 0%, 0%, 0.05);
@@ -195,11 +198,11 @@
   &.activated {
     .background {
       .start-rectangle {
-        background-color: var(--arrow-color-activated);
+        background-color: var(--arrow-blue-activated);
       }
 
       .end-triangle {
-        border-left: 20px solid var(--arrow-color-activated);
+        border-left: 20px solid var(--arrow-blue-activated);
       }
     }
   }
@@ -280,11 +283,11 @@
   &.activated {
     .background {
       .start-rectangle {
-        background-color: var(--arrow-color-activated);
+        background-color: var(--arrow-blue-activated);
       }
 
       .end-triangle {
-        border-top: 20px solid var(--arrow-color-activated);
+        border-top: 20px solid var(--arrow-blue-activated);
       }
     }
   }

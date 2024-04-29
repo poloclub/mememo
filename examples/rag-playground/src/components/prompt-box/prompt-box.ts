@@ -33,6 +33,9 @@ export class MememoPromptBox extends LitElement {
   prompt = '';
 
   @state()
+  promptHTML = '';
+
+  @state()
   tokenCount = 0;
 
   //==========================================================================||
@@ -90,9 +93,21 @@ export class MememoPromptBox extends LitElement {
     if (this.template === undefined) return;
 
     let prompt = this.template;
+    let promptHTMLString = this.template.replace(/</g, '&lt;');
+    promptHTMLString = promptHTMLString.replace(/>/g, '&gt;');
+    promptHTMLString = promptHTMLString.replace(/\n/g, '<br>');
+    promptHTMLString = promptHTMLString.replace(
+      /{{user}}/g,
+      '<span class="user-query">{{user}}</span>'
+    );
+    promptHTMLString = promptHTMLString.replace(
+      /{{context}}/g,
+      '<span class="context-query">{{context}}</span>'
+    );
 
     if (this.userQuery !== undefined && this.userQuery !== '') {
       prompt = prompt.replace('{{user}}', this.userQuery);
+      promptHTMLString = promptHTMLString.replace('{{user}}', this.userQuery);
     }
 
     if (
@@ -101,9 +116,11 @@ export class MememoPromptBox extends LitElement {
     ) {
       const documents = this.relevantDocuments.join('\n');
       prompt = prompt.replace('{{context}}', documents);
+      promptHTMLString = promptHTMLString.replace('{{context}}', documents);
     }
 
     this.prompt = prompt;
+    this.promptHTML = promptHTMLString;
     this.tokenCount = encode(prompt).length;
   }
 
@@ -118,7 +135,7 @@ export class MememoPromptBox extends LitElement {
   //==========================================================================||
   textareaInput(e: InputEvent) {
     const textareaElement = e.currentTarget as HTMLTextAreaElement;
-    this.prompt = textareaElement.value;
+    this.prompt = textareaElement.innerText;
 
     // Notify the parent
     const event = new Event('promptEdited', {
@@ -169,9 +186,13 @@ export class MememoPromptBox extends LitElement {
             </button>
           </div>
         </div>
-        <textarea rows="9" @input=${(e: InputEvent) => this.textareaInput(e)}>
-${this.prompt}</textarea
+        <div
+          class="input-box"
+          contenteditable
+          @input=${(e: InputEvent) => this.textareaInput(e)}
         >
+          ${unsafeHTML(this.promptHTML)}
+        </div>
       </div>
     `;
   }

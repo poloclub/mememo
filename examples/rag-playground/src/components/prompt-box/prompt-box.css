@@ -10,7 +10,7 @@
   gap: 5px;
 }
 
-textarea {
+.input-box {
   border: 1px solid var(--gray-300);
   border-radius: 5px;
   padding: 5px 5px;
@@ -19,7 +19,10 @@ textarea {
   box-sizing: border-box;
   font-family: inherit;
   font-size: var(--content-text-size);
+  line-height: 1.2;
+  overflow: auto;
   resize: vertical;
+  height: 170px;
   min-height: 60px;
 
   &:focus {
@@ -30,6 +33,14 @@ textarea {
   &::placeholder {
     color: var(--gray-600);
   }
+}
+
+span.user-query {
+  background-color: color-mix(in lab, var(--orange-100) 70%, transparent 30%);
+}
+
+span.context-query {
+  background-color: color-mix(in lab, var(--blue-100) 70%, transparent 30%);
 }
 
 .header {
