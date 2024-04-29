@@ -26,7 +26,12 @@
   --arrow-color: var(--gray-300);
 
   --arrow-blue-activated: var(--blue-500);
-  --arrow-orange-activated: var(--orange-500);
+  --arrow-orange-activated: var(--orange-300);
+  --arrow-blue-orange-activated: linear-gradient(
+    to right,
+    var(--arrow-orange-activated) 30%,
+    var(--arrow-blue-activated) 70%
+  );
 
   --border-radius: 5px;
   --block-shadow: 0px 0px 2px hsla(0, 0%, 0%, 0.1),
@@ -196,13 +201,27 @@
   width: 100%;
 
   &.activated {
-    .background {
-      .start-rectangle {
-        background-color: var(--arrow-blue-activated);
-      }
+    &.user {
+      .background {
+        .start-rectangle {
+          background-color: var(--arrow-orange-activated);
+        }
 
-      .end-triangle {
-        border-left: 20px solid var(--arrow-blue-activated);
+        .end-triangle {
+          border-left: 20px solid var(--arrow-orange-activated);
+        }
+      }
+    }
+
+    &.context {
+      .background {
+        .start-rectangle {
+          background-color: var(--arrow-blue-activated);
+        }
+
+        .end-triangle {
+          border-left: 20px solid var(--arrow-blue-activated);
+        }
       }
     }
   }
@@ -281,13 +300,39 @@
   height: 100%;
 
   &.activated {
-    .background {
-      .start-rectangle {
-        background-color: var(--arrow-blue-activated);
-      }
+    &.user {
+      .background {
+        .start-rectangle {
+          background-color: var(--arrow-orange-activated);
+        }
 
-      .end-triangle {
-        border-top: 20px solid var(--arrow-blue-activated);
+        .end-triangle {
+          border-top: 20px solid var(--arrow-orange-activated);
+        }
+      }
+    }
+
+    &.context {
+      .background {
+        .start-rectangle {
+          background-color: var(--arrow-blue-activated);
+        }
+
+        .end-triangle {
+          border-top: 20px solid var(--arrow-blue-activated);
+        }
+      }
+    }
+
+    &.user-context {
+      .background {
+        .start-rectangle {
+          background: var(--arrow-blue-activated);
+        }
+
+        .end-triangle {
+          border-top: 20px solid var(--arrow-blue-activated);
+        }
       }
     }
   }

@@ -804,7 +804,7 @@ export class MememoPlayground extends LitElement {
           <mememo-output-box llmOutput=${this.llmOutput}></mememo-output-box>
         </div>
 
-        <div class="flow horizontal-flow input-text">
+        <div class="flow horizontal-flow user input-text">
           <div class="background">
             <span class="line-loader"></span>
             <div class="start-rectangle"></div>
@@ -812,7 +812,7 @@ export class MememoPlayground extends LitElement {
           </div>
         </div>
 
-        <div class="flow horizontal-flow text-prompt">
+        <div class="flow horizontal-flow context text-prompt">
           <div class="background">
             <span class="line-loader"></span>
             <div class="start-rectangle"></div>
@@ -820,7 +820,7 @@ export class MememoPlayground extends LitElement {
           </div>
         </div>
 
-        <div class="flow vertical-flow input-prompt">
+        <div class="flow vertical-flow user input-prompt">
           <div class="background">
             <span class="line-loader"></span>
             <div class="start-rectangle"></div>
@@ -828,7 +828,7 @@ export class MememoPlayground extends LitElement {
           </div>
         </div>
 
-        <div class="flow vertical-flow prompt-output">
+        <div class="flow vertical-flow user-context prompt-output">
           <div class="background">
             <span class="line-loader"></span>
             <div class="start-rectangle"></div>
