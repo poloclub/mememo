@@ -153,6 +153,11 @@
     color: var(--blue-600);
     padding: 0 8px;
     border-radius: 5px;
+    font-weight: 500;
+
+    .user-query {
+      color: var(--orange-600);
+    }
 
     &[is-hidden] {
       opacity: 0;

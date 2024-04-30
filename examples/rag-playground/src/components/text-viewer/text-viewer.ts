@@ -427,7 +427,7 @@ export class MememoTextViewer extends LitElement {
             class="distance-overlay"
             ?is-hidden=${!this.isFiltered || this.curQuery !== null}
             >${i < this.shownDocumentDistances.length
-              ? round(this.shownDocumentDistances[i], 4)
+              ? round(1 - this.shownDocumentDistances[i], 4)
               : ''}</span
           >
           <div class="item-content">${itemText}</div>
@@ -509,7 +509,7 @@ export class MememoTextViewer extends LitElement {
               class="semantic-search-info"
               ?is-hidden=${!this.isFiltered || this.curQuery !== null}
             >
-              Documents similar to user query
+              Documents similar to <span class="user-query">user query</span>
             </div>
           </div>
         </div>
