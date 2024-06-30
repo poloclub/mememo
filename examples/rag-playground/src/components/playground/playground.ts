@@ -126,7 +126,7 @@ const datasets: Record<Dataset, DatasetInfo> = {
 };
 
 const DEV_MODE = import.meta.env.DEV;
-const USE_CACHE = true && DEV_MODE;
+const USE_CACHE = false && DEV_MODE;
 const FORMATTER = d3.format(',');
 
 /**
@@ -158,7 +158,7 @@ export class MememoPlayground extends LitElement {
   }
 
   @state()
-  topK = 10;
+  topK = 5;
 
   @state()
   efSearch = 100;
@@ -427,7 +427,7 @@ export class MememoPlayground extends LitElement {
       if (value > 0) {
         this.topK = value;
       } else {
-        this.topK = 10;
+        this.topK = 5;
       }
       element.value = String(this.topK);
     }
@@ -741,7 +741,7 @@ export class MememoPlayground extends LitElement {
                 <input
                   id="input-top-k"
                   type="text"
-                  value="10"
+                  value="5"
                   @change=${(e: InputEvent) =>
                     this.parameterInputChanged(e, 'top-k')}
               /></span>
