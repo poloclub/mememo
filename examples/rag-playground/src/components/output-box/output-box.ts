@@ -33,7 +33,9 @@ export class MememoOutputBox extends LitElement {
    * This method is called before new DOM is updated and rendered
    * @param changedProperties Property that has been changed
    */
-  willUpdate(changedProperties: PropertyValues<this>) {}
+  willUpdate(changedProperties: PropertyValues<this>) {
+    console.log(this.llmOutput);
+  }
 
   //==========================================================================||
   //                              Custom Methods                              ||
@@ -66,8 +68,7 @@ export class MememoOutputBox extends LitElement {
             </button>
           </div>
         </div>
-        <div rows="5" class="output-container">
-          ${this.llmOutput}
+        <div rows="5" class="output-container">${this.llmOutput}
           <div class="placeholder" ?is-hidden=${this.llmOutput !== ''}>
             Click the run buttons above to see LLM's output.
           </div>

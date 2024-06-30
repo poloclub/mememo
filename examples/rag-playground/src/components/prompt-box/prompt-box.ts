@@ -32,6 +32,8 @@ export class MememoPromptBox extends LitElement {
   @state()
   prompt = '';
 
+  lastRunPrompt = '';
+
   @state()
   promptHTML = '';
 
@@ -72,10 +74,17 @@ export class MememoPromptBox extends LitElement {
       changedProperties.has('relevantDocuments')
     ) {
       this.updatePrompt();
+    }
 
+    if (changedProperties.has('relevantDocuments')) {
       // If the update is triggered by a relevant document update, we also
       // run the compiled prompt
-      if (this.relevantDocuments && this.relevantDocuments.length > 0) {
+      if (
+        this.relevantDocuments &&
+        this.relevantDocuments.length > 0 &&
+        this.lastRunPrompt !== this.prompt
+      ) {
+        this.lastRunPrompt = this.prompt;
         this.runButtonClicked();
       }
     }

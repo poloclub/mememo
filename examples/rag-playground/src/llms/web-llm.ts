@@ -209,9 +209,17 @@ const startLoadModel = async (
  */
 const startTextGen = async (prompt: string, temperature: number) => {
   try {
+    // Try to truncate the input prompt if it's too long
+    let curPrompt = prompt;
+
+    // if (prompt.length > 8000) {
+    //   curPrompt = prompt.slice(0, 8000);
+    //   console.warn('Truncating the prompt to 8k characters.');
+    // }
+
     const curEngine = await engine!;
     const response = await curEngine.chat.completions.create({
-      messages: [{ role: 'user', content: prompt }],
+      messages: [{ role: 'user', content: curPrompt }],
       n: 1,
       max_gen_len: 2048,
       // Override temperature to 0 because local models are very unstable
@@ -229,7 +237,7 @@ const startTextGen = async (prompt: string, temperature: number) => {
         requestID: 'web-llm',
         apiKey: '',
         result: response.choices[0].message.content || '',
-        prompt: prompt,
+        prompt: curPrompt,
         detail: ''
       }
     };

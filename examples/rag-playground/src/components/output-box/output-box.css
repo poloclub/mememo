@@ -13,6 +13,7 @@
 
 .output-container {
   /* border: 1px solid var(--gray-300); */
+  white-space: pre-line;
   border-radius: 5px;
   padding: 5px 8px;
   width: 100%;
