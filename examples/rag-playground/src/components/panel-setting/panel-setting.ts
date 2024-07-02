@@ -58,6 +58,7 @@ const localModelSizeMap: Record<SupportedLocalModel, string> = {
   [SupportedLocalModel['tinyllama-1.1b']]: '630 MB',
   [SupportedLocalModel['llama-2-7b']]: '3.6 GB',
   [SupportedLocalModel['phi-2']]: '1.5 GB',
+  [SupportedLocalModel['phi-3']]: '2.1 GB',
   [SupportedLocalModel['gemma-2b']]: '1.3 GB'
   // [SupportedLocalModel['mistral-7b-v0.2']]: '3.5 GB'
 };
@@ -327,6 +328,8 @@ export class MememoPanelSetting extends LitElement {
 
     if (!this.curDeviceSupportsLocalModel) return;
     if (this.userConfig.preferredLLM === this.selectedModel) return;
+
+    console.log(this.selectedModel);
 
     // Request the worker to start loading the model
     const message: TextGenLocalWorkerMessage = {

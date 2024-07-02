@@ -588,6 +588,7 @@ export class MememoPlayground extends LitElement {
       // case SupportedLocalModel['mistral-7b-v0.2']:
       case SupportedLocalModel['gemma-2b']:
       case SupportedLocalModel['phi-2']:
+      case SupportedLocalModel['phi-3']:
       case SupportedLocalModel['llama-2-7b']:
       case SupportedLocalModel['tinyllama-1.1b']: {
         runRequest = new Promise<TextGenMessage>(resolve => {

@@ -35,21 +35,14 @@ enum Role {
   assistant = 'assistant'
 }
 
+export enum SupportedLocalModelLlama {
+  'llama-2-7b' = 'Llama 2 (7B)'
+}
+
 const CONV_TEMPLATES: Record<
-  SupportedLocalModel,
+  SupportedLocalModelLlama,
   Partial<ConvTemplateConfig>
 > = {
-  [SupportedLocalModel['tinyllama-1.1b']]: {
-    system_template: '<|im_start|><|im_end|> ',
-    roles: {
-      [Role.user]: '<|im_start|>user',
-      [Role.assistant]: '<|im_start|>assistant'
-    },
-    offset: 0,
-    seps: ['', ''],
-    stop_str: ['<|im_end|>'],
-    stop_token_ids: [2]
-  },
   [SupportedLocalModel['llama-2-7b']]: {
     system_template: '[INST] <<SYS>><</SYS>>\n\n ',
     roles: {
@@ -64,33 +57,6 @@ const CONV_TEMPLATES: Record<
     system_prefix_token_ids: [1],
     stop_token_ids: [2],
     add_role_after_system_message: false
-  },
-  [SupportedLocalModel['phi-2']]: {
-    system_template: '',
-    system_message: '',
-    roles: {
-      [Role.user]: 'Instruct',
-      [Role.assistant]: 'Output'
-    },
-    offset: 0,
-    seps: ['\n'],
-    stop_str: ['<|endoftext|>'],
-    stop_token_ids: [50256]
-  },
-  [SupportedLocalModel['gemma-2b']]: {
-    system_template: '',
-    system_message: '',
-    roles: {
-      [Role.user]: '<start_of_turn>user',
-      [Role.assistant]: '<start_of_turn>model'
-    },
-    offset: 0,
-    seps: ['<end_of_turn>\n', '<end_of_turn>\n'],
-    role_content_sep: '\n',
-    role_empty_sep: '\n',
-    stop_str: ['<end_of_turn>'],
-    system_prefix_token_ids: [2],
-    stop_token_ids: [1, 107]
   }
 };
 
@@ -98,23 +64,36 @@ const modelMap: Record<SupportedLocalModel, string> = {
   [SupportedLocalModel['tinyllama-1.1b']]: 'TinyLlama-1.1B-Chat-v0.4-q4f16_1',
   [SupportedLocalModel['llama-2-7b']]: 'Llama-2-7b-chat-hf-q4f16_1',
   [SupportedLocalModel['phi-2']]: 'Phi2-q4f16_1',
+  [SupportedLocalModel['phi-3']]: 'Phi-3-mini-4k-instruct-q4f16_1-MLC',
   [SupportedLocalModel['gemma-2b']]: 'gemma-2b-it-q4f16_1'
 };
 
 const initProgressCallback = (report: webllm.InitProgressReport) => {
   // Update the main thread about the progress
   console.log(report.text);
+
+  // Manually parse the cache progress
+  const pattern = /cache\[(\d+)\/(\d+)\]/;
+  const match = report.text.match(pattern);
+  let progress = report.progress;
+
+  if (match && report.progress == 0) {
+    const current = parseInt(match[1]);
+    const total = parseInt(match[2]);
+    progress = total !== 0 ? current / total : 0;
+  }
+
   const message: TextGenLocalWorkerMessage = {
     command: 'progressLoadModel',
     payload: {
-      progress: report.progress,
+      progress: progress,
       timeElapsed: report.timeElapsed
     }
   };
   postMessage(message);
 };
 
-let engine: Promise<webllm.EngineInterface> | null = null;
+let engine: Promise<webllm.MLCEngineInterface> | null = null;
 
 //==========================================================================||
 //                          Worker Event Handlers                           ||
@@ -171,9 +150,8 @@ const startLoadModel = async (
     };
   }
 
-  engine = webllm.CreateEngine(curModel, {
-    initProgressCallback: initProgressCallback,
-    chatOpts: chatOption
+  engine = webllm.CreateMLCEngine(curModel, {
+    initProgressCallback: initProgressCallback
   });
 
   await engine;
@@ -210,7 +188,7 @@ const startLoadModel = async (
 const startTextGen = async (prompt: string, temperature: number) => {
   try {
     // Try to truncate the input prompt if it's too long
-    let curPrompt = prompt;
+    const curPrompt = prompt;
 
     // if (prompt.length > 8000) {
     //   curPrompt = prompt.slice(0, 8000);
@@ -221,7 +199,7 @@ const startTextGen = async (prompt: string, temperature: number) => {
     const response = await curEngine.chat.completions.create({
       messages: [{ role: 'user', content: curPrompt }],
       n: 1,
-      max_gen_len: 2048,
+      max_tokens: 2048,
       // Override temperature to 0 because local models are very unstable
       temperature: 0
       // logprobs: false

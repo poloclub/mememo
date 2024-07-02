@@ -6,6 +6,7 @@ export enum SupportedLocalModel {
   'gemma-2b' = 'Gemma (2B)',
   'llama-2-7b' = 'Llama 2 (7B)',
   'phi-2' = 'Phi 2 (2.7B)',
+  'phi-3' = 'Phi 3 (2.1B)',
   'tinyllama-1.1b' = 'TinyLlama (1.1B)'
 }
 
@@ -27,6 +28,7 @@ export const supportedModelReverseLookup: Record<
   [SupportedLocalModel['tinyllama-1.1b']]: 'tinyllama-1.1b',
   [SupportedLocalModel['llama-2-7b']]: 'llama-2-7b',
   [SupportedLocalModel['phi-2']]: 'phi-2',
+  [SupportedLocalModel['phi-3']]: 'phi-3',
   [SupportedLocalModel['gemma-2b']]: 'gemma-2b'
 };
 
@@ -47,7 +49,8 @@ export const modelFamilyMap: Record<
   [SupportedLocalModel['tinyllama-1.1b']]: ModelFamily.local,
   [SupportedLocalModel['llama-2-7b']]: ModelFamily.local,
   [SupportedLocalModel['gemma-2b']]: ModelFamily.local,
-  [SupportedLocalModel['phi-2']]: ModelFamily.local
+  [SupportedLocalModel['phi-2']]: ModelFamily.local,
+  [SupportedLocalModel['phi-3']]: ModelFamily.local
 };
 
 export interface UserConfig {

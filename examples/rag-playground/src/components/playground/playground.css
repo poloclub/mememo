@@ -23,6 +23,9 @@
     55px
     minmax(300px, 500px);
 
+  border: 1px solid var(--gray-300);
+  border-radius: 10px;
+
   --arrow-color: var(--gray-300);
 
   --arrow-blue-activated: var(--blue-500);
@@ -409,6 +412,7 @@
   color: var(--gray-600);
   line-height: 1.25;
   font-weight: 800;
+  cursor: default;
 }
 
 .svg-icon {
