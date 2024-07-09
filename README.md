@@ -3,9 +3,8 @@
 [![build](https://github.com/poloclub/mememo/actions/workflows/build.yml/badge.svg)](https://github.com/poloclub/mememo/actions/workflows/build.yml)
 [![npm](https://img.shields.io/npm/v/mememo?color=orange)](https://www.npmjs.com/package/mememo)
 [![license](https://img.shields.io/badge/License-MIT-blue)](https://github.com/poloclub/mememo/blob/main/LICENSE)
-
-<!-- [![arxiv badge](https://img.shields.io/badge/arXiv-2209.09227-red)](https://arxiv.org/abs/2303.09545)
-[![DOI:10.1145/3543873.3587362](https://img.shields.io/badge/DOI-10.1145/3543873.3587362-blue)](https://doi.org/10.1145/3543873.3587362) -->
+[![arxiv badge](https://img.shields.io/badge/arXiv-2407.01972-red)](https://arxiv.org/abs/2407.01972)
+[![DOI:10.1145/3543873.3587362](https://img.shields.io/badge/DOI-10.1145/3626772.3657662-blue)](https://doi.org/10.1145/3626772.3657662)
 
 A JavaScript library that brings vector search and RAG to your browser!
 
@@ -26,6 +25,10 @@ A JavaScript library that brings vector search and RAG to your browser!
 MeMemo is JavaScript library that adapts the state-of-the-art approximate nearest neighbor search technique HNSW to browser environments.
 Developed with modern and native Web technologies, such as IndexedDB and Web Workers, our toolkit leverages client-side hardware capabilities to enable researchers and developers to efficiently search through millions of high-dimensional vectors in browsers.
 MeMemo enables exciting new design and research opportunities, such as private and personalized content creation and interactive prototyping, as demonstrated in our example application RAG Playground.✨
+
+### Features
+
+<video src="https://github.com/poloclub/mememo/assets/15007159/081ab670-a90a-464b-a9e6-e70b308314c9"></video>
 
 ## Getting Started
 
@@ -109,6 +112,21 @@ Navigate to localhost:3000. You should see three Explainers running in your brow
 ## Credits
 
 MeMemo is created by <a href='https://zijie.wang/' target='_blank'>Jay Wang</a> and <a href='' target='_blank'>Polo Chau</a>.
+
+## Citation
+
+To learn more about MeMemo, check out our [research paper](https://arxiv.org/abs/2407.01972) published at SIGIR'24.
+
+```bibtex
+@inproceedings{wangMeMemoOndeviceRetrieval2024,
+  title = {{{MeMemo}}: {{On-device Retrieval Augmentation}} for {{Private}} and {{Personalized Text Generation}}},
+  booktitle = {Proceedings of the 47th {{International ACM SIGIR Conference}} on {{Research}} and {{Development}} in {{Information Retrieval}}},
+  author = {Wang, Zijie J. and Chau, Duen Horng},
+  year = {2024},
+  urldate = {2024-06-26},
+  langid = {english}
+}
+```
 
 ## License
 
