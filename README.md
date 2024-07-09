@@ -22,7 +22,7 @@ A JavaScript library that brings vector search and RAG to your browser!
 
 ## What is MeMemo?
 
-MeMemo is JavaScript library that adapts the state-of-the-art approximate nearest neighbor search technique HNSW to browser environments.
+MeMemo is a JavaScript library that adapts the state-of-the-art approximate nearest neighbor search technique HNSW to browser environments.
 Developed with modern and native Web technologies, such as IndexedDB and Web Workers, our toolkit leverages client-side hardware capabilities to enable researchers and developers to efficiently search through millions of high-dimensional vectors in browsers.
 MeMemo enables exciting new design and research opportunities, such as private and personalized content creation and interactive prototyping, as demonstrated in our example application RAG Playground.✨
 
