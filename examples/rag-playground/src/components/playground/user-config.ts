@@ -14,7 +14,9 @@ export enum SupportedRemoteModel {
   'gpt-3.5-free' = 'GPT 3.5',
   'gpt-3.5' = 'GPT 3.5 (Token)',
   'gpt-4' = 'GPT 4',
-  'gemini-pro' = 'Gemini Pro'
+  'gemini-pro' = 'Gemini Pro',
+  'deepseek-chat' = 'DeepSeek Chat',
+  'deepseek-coder' = 'DeepSeek Coder'
 }
 
 export const supportedModelReverseLookup: Record<
@@ -25,6 +27,8 @@ export const supportedModelReverseLookup: Record<
   [SupportedRemoteModel['gpt-3.5']]: 'gpt-3.5',
   [SupportedRemoteModel['gpt-4']]: 'gpt-4',
   [SupportedRemoteModel['gemini-pro']]: 'gemini-pro',
+  [SupportedRemoteModel['deepseek-chat']]: 'deepseek-chat',
+  [SupportedRemoteModel['deepseek-coder']]: 'deepseek-coder',
   [SupportedLocalModel['tinyllama-1.1b']]: 'tinyllama-1.1b',
   [SupportedLocalModel['llama-2-7b']]: 'llama-2-7b',
   [SupportedLocalModel['phi-2']]: 'phi-2',
@@ -35,6 +39,7 @@ export const supportedModelReverseLookup: Record<
 export enum ModelFamily {
   google = 'Google',
   openAI = 'Open AI',
+  deepseek = 'DeepSeek',
   local = 'Local'
 }
 
@@ -46,6 +51,8 @@ export const modelFamilyMap: Record<
   [SupportedRemoteModel['gpt-3.5-free']]: ModelFamily.openAI,
   [SupportedRemoteModel['gpt-4']]: ModelFamily.openAI,
   [SupportedRemoteModel['gemini-pro']]: ModelFamily.google,
+  [SupportedRemoteModel['deepseek-chat']]: ModelFamily.deepseek,
+  [SupportedRemoteModel['deepseek-coder']]: ModelFamily.deepseek,
   [SupportedLocalModel['tinyllama-1.1b']]: ModelFamily.local,
   [SupportedLocalModel['llama-2-7b']]: ModelFamily.local,
   [SupportedLocalModel['gemma-2b']]: ModelFamily.local,
@@ -71,6 +78,7 @@ export class UserConfigManager {
     this.#llmAPIKeys = {
       [ModelFamily.openAI]: '',
       [ModelFamily.google]: '',
+      [ModelFamily.deepseek]: '',
       [ModelFamily.local]: ''
     };
     this.#preferredLLM = SupportedRemoteModel['gpt-3.5-free'];

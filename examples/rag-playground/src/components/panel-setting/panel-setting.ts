@@ -19,6 +19,7 @@ import {
 } from '../playground/user-config';
 import { textGenGpt } from '../../llms/gpt';
 import { textGenGemini } from '../../llms/gemini';
+import { textGenDeepSeek } from '../../llms/deepseek';
 import { tooltipMouseEnter, tooltipMouseLeave } from '@xiaohk/utils';
 import { hasLocalModelInCache, detectGPUDevice } from '../../llms/web-llm';
 
@@ -39,7 +40,9 @@ const apiKeyMap: Record<SupportedRemoteModel, string> = {
   [SupportedRemoteModel['gpt-3.5']]: 'Open AI',
   [SupportedRemoteModel['gpt-3.5-free']]: 'Open AI',
   [SupportedRemoteModel['gpt-4']]: 'Open AI',
-  [SupportedRemoteModel['gemini-pro']]: 'Gemini'
+  [SupportedRemoteModel['gemini-pro']]: 'Gemini',
+  [SupportedRemoteModel['deepseek-chat']]: 'DeepSeek',
+  [SupportedRemoteModel['deepseek-coder']]: 'DeepSeek'
 };
 
 const apiKeyDescriptionMap: Record<ModelFamily, TemplateResult> = {
@@ -50,6 +53,10 @@ const apiKeyDescriptionMap: Record<ModelFamily, TemplateResult> = {
   [ModelFamily.google]: html`Get the key at
     <a href="https://makersuite.google.com/" target="_blank"
       >Google AI Studio</a
+    >`,
+  [ModelFamily.deepseek]: html`Get the key at
+    <a href="https://platform.deepseek.com/api_keys" target="_blank"
+      >DeepSeek Platform</a
     >`,
   [ModelFamily.local]: html``
 };
@@ -393,6 +400,30 @@ export class MememoPanelSetting extends LitElement {
           prompt,
           temperature,
           'gpt-3.5-turbo',
+          false
+        )
+          .then(value => {
+            this.showModelLoader = false;
+            this.textGenMessageHandler(
+              this.selectedModel as SupportedRemoteModel,
+              apiKey,
+              value
+            );
+          })
+          .then(
+            () => {},
+            () => {}
+          );
+        break;
+      }
+
+      case ModelFamily.deepseek: {
+        textGenDeepSeek(
+          apiKey,
+          requestID,
+          prompt,
+          temperature,
+          'deepseek-chat',
           false
         )
           .then(value => {

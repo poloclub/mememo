@@ -15,6 +15,7 @@ import {
 import { textGenGpt } from '../../llms/gpt';
 import { textGenMememo } from '../../llms/mememo-gen';
 import { textGenGemini } from '../../llms/gemini';
+import { textGenDeepSeek } from '../../llms/deepseek';
 import { promptTemplates } from '../../config/promptTemplates';
 
 import type { TextGenMessage } from '../../llms/gpt';
@@ -573,6 +574,32 @@ export class MememoPlayground extends LitElement {
         );
         break;
       }
+
+      case SupportedRemoteModel['deepseek-chat']: {
+        runRequest = textGenDeepSeek(
+          this.userConfig.llmAPIKeys[ModelFamily.deepseek],
+          'text-gen',
+          curPrompt,
+          temperature,
+          'deepseek-chat',
+          USE_CACHE
+        );
+        break;
+      }
+
+      case SupportedRemoteModel['deepseek-coder']: {
+        runRequest = textGenDeepSeek(
+          this.userConfig.llmAPIKeys[ModelFamily.deepseek],
+          'text-gen',
+          curPrompt,
+          temperature,
+          'deepseek-coder',
+          USE_CACHE
+        );
+        break;
+      }
+
+
 
       case SupportedRemoteModel['gemini-pro']: {
         runRequest = textGenGemini(
